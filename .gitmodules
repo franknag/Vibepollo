@@ -66,3 +66,7 @@
 	path = third-party/moonlight-common-c
 	url = https://github.com/vibesoftwarecoder/moonlight-common-c
 	branch = master
+[submodule "third-party/libvirtualdisplay"]
+	path = third-party/libvirtualdisplay
+	url = https://github.com/Nonary/libvirtualdisplay.git
+	branch = master
