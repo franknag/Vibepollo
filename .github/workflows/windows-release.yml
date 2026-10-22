@@ -59,25 +59,23 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Download & Extract Precompiled FFmpeg Binaries
+      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
+          INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
+          
+          mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
-          cd third-party/build-deps/dist/Windows-AMD64
           
-          RELEASE_TAG="v2026.905.170812"
-          curl -L -o windows-amd64.tar.gz "https://github.com/LizardByte/build-deps/releases/download/${RELEASE_TAG}/windows-amd64.tar.gz"
-          
-          tar -xzf windows-amd64.tar.gz --strip-components=1 || tar -xzf windows-amd64.tar.gz
-          rm -f windows-amd64.tar.gz
-          
-          # Confirms the file exists so line 41 of common.cmake passes successfully
-          if [ -f "lib/libavcodec.a" ]; then
-            echo "Successfully verified libavcodec.a presence!"
-          else
-            echo "ERROR: libavcodec.a is missing!"
-            exit 1
-          fi
+          # CRITICAL: build-deps requires MSYS Makefiles on Windows to handle subshells correctly
+          cmake -B third-party/build-deps/build -S third-party/build-deps \
+            -G "MSYS Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
+
+          # Build and install dependencies into the target dist directory
+          cmake --build third-party/build-deps/build --config Release
+          cmake --install third-party/build-deps/build
 
       - name: Configure CMake Build
         run: |
