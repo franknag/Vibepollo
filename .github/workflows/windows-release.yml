@@ -28,6 +28,7 @@ jobs:
           location: 'C:\msys64'
           update: true
           install: >-
+            git ninja cmake mingw-w64-ucrt64-toolchain
             base-devel
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
@@ -43,6 +44,16 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-static
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
+
+      - name: Download FFmpeg Build Dependencies
+        shell: msys2 {0}
+        run: |
+          mkdir -p third-party/build-deps/dist/Windows-AMD64
+          cd third-party/build-deps/dist
+          curl -L -o windows-amd64.tar.gz "https://github.com/LizardByte/build-deps/releases/latest/download/windows-amd64.tar.gz" || true
+          if [ -f windows-amd64.tar.gz ]; then
+            tar -xzf windows-amd64.tar.gz -C Windows-AMD64 --strip-components=1 || tar -xzf windows-amd64.tar.gz -C Windows-AMD64
+          fi
 
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
@@ -64,7 +75,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_WERROR=OFF -DFFMPEG_PREPARED_BINARIES=""
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
