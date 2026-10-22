@@ -66,16 +66,16 @@ jobs:
           cd third-party/build-deps/dist/Windows-AMD64
           
           RELEASE_TAG="v2026.905.170812"
-          echo "Downloading precompiled Windows-AMD64 dependencies..."
           curl -L -o windows-amd64.tar.gz "https://github.com/LizardByte/build-deps/releases/download/${RELEASE_TAG}/windows-amd64.tar.gz"
           
           tar -xzf windows-amd64.tar.gz --strip-components=1 || tar -xzf windows-amd64.tar.gz
           rm -f windows-amd64.tar.gz
           
+          # Confirms the file exists so line 41 of common.cmake passes successfully
           if [ -f "lib/libavcodec.a" ]; then
             echo "Successfully verified libavcodec.a presence!"
           else
-            echo "ERROR: libavcodec.a is still missing!"
+            echo "ERROR: libavcodec.a is missing!"
             exit 1
           fi
 
@@ -83,7 +83,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
