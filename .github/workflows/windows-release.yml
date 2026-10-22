@@ -19,7 +19,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
 
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
@@ -58,6 +57,22 @@ jobs:
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
+          }
+
+      - name: Ensure FFmpeg Build-Deps Exist for CMake
+        shell: pwsh
+        run: |
+          $targetPath = "third-party/build-deps"
+          $targetBin = "$targetPath/dist/Windows-AMD64"
+          
+          if (-not (Test-Path $targetBin)) {
+              Write-Host "FFmpeg binaries not found at $targetBin. Cloning LizardByte/build-deps..."
+              if (Test-Path $targetPath) {
+                  Remove-Item -Recurse -Force $targetPath
+              }
+              git clone https://github.com/LizardByte/build-deps.git $targetPath
+          } else {
+              Write-Host "FFmpeg pre-compiled binaries successfully verified at $targetBin"
           }
 
       - name: Configure CMake Build
