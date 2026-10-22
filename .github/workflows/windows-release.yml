@@ -44,29 +44,13 @@ jobs:
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
 
-      - name: Setup Dependencies Windows (Provision Build-Deps)
-        shell: pwsh
+      - name: Verify and update build-deps submodule
         run: |
-          $targetDir = "third-party/build-deps/dist/Windows-AMD64"
-          if (-not (Test-Path "$targetDir/lib")) {
-              Write-Host "Provisioning build-deps directory structure..."
-              New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-              
-              # Download the official pre-built dependency release archive from LizardByte/build-deps
-              # This matches what upstream Sunshine workflows fetch for Windows-AMD64
-              $releaseUrl = "https://github.com/LizardByte/build-deps/releases/latest/download/Windows-AMD64-ffmpeg.tar.gz"
-              $archivePath = "build-deps.tar.gz"
-              
-              Write-Host "Downloading precompiled binaries from $releaseUrl..."
-              Invoke-WebRequest -Uri $releaseUrl -OutFile $archivePath
-              
-              Write-Host "Extracting archive..."
-              tar -xzf $archivePath -C third-party/build-deps/
-              Remove-Item $archivePath -Force
-          } else {
-              Write-Host "Build-deps binaries already present at $targetDir"
-          }
-
+          git submodule update --init --recursive
+          cd third-party/build-deps
+          git checkout dist || true  # Ensures it's on the correct dist branch if applicable
+          git submodule update --init --recursive
+          cd ../..
 
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
