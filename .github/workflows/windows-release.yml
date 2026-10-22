@@ -21,9 +21,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Checkout Submodules
-        run: git submodule update --init --recursive
-
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
         with:
