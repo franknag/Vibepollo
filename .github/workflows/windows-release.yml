@@ -22,10 +22,14 @@ jobs:
           fetch-depth: 0
 
       - name: Initialize build-deps dist folder
+        shell: pwsh
         run: |
-          cd third-party/build-deps
           git submodule update --init --recursive
-          git checkout dist || true
+          if (Test-Path "third-party/build-deps") {
+              Set-Location "third-party/build-deps"
+              git checkout dist
+              Set-Location "../../"
+          }
 
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
