@@ -59,6 +59,26 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
+      - name: Download & Extract Precompiled FFmpeg Binaries
+        shell: msys2 {0}
+        run: |
+          mkdir -p third-party/build-deps/dist/Windows-AMD64
+          cd third-party/build-deps/dist/Windows-AMD64
+          
+          RELEASE_TAG="v2026.905.170812"
+          echo "Downloading precompiled Windows-AMD64 dependencies..."
+          curl -L -o windows-amd64.tar.gz "https://github.com/LizardByte/build-deps/releases/download/${RELEASE_TAG}/windows-amd64.tar.gz"
+          
+          tar -xzf windows-amd64.tar.gz --strip-components=1 || tar -xzf windows-amd64.tar.gz
+          rm -f windows-amd64.tar.gz
+          
+          if [ -f "lib/libavcodec.a" ]; then
+            echo "Successfully verified libavcodec.a presence!"
+          else
+            echo "ERROR: libavcodec.a is still missing!"
+            exit 1
+          fi
+
       - name: Configure CMake Build
         run: |
           mkdir build
