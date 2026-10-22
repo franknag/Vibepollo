@@ -59,27 +59,11 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Ensure FFmpeg Build-Deps Exist for CMake
-        shell: pwsh
-        run: |
-          $targetPath = "third-party/build-deps"
-          $targetBin = "$targetPath/dist/Windows-AMD64"
-          
-          if (-not (Test-Path $targetBin)) {
-              Write-Host "FFmpeg binaries not found at $targetBin. Cloning LizardByte/build-deps..."
-              if (Test-Path $targetPath) {
-                  Remove-Item -Recurse -Force $targetPath
-              }
-              git clone https://github.com/LizardByte/build-deps.git $targetPath
-          } else {
-              Write-Host "FFmpeg pre-compiled binaries successfully verified at $targetBin"
-          }
-
       - name: Configure CMake Build
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="C:/msys64/ucrt64"
 
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
