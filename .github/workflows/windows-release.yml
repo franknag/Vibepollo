@@ -63,6 +63,8 @@ jobs:
         shell: msys2 {0}
         run: |
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
+          NASM_BIN=$(cygpath -m /ucrt64/bin/nasm.exe)
+          YASM_BIN=$(cygpath -m /ucrt64/bin/yasm.exe)
           
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
@@ -71,7 +73,8 @@ jobs:
             -G "MSYS Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-            -DCMAKE_ASM_NASM_COMPILER=nasm
+            -DCMAKE_ASM_NASM_COMPILER="$NASM_BIN" \
+            -DCMAKE_ASM_YASM_COMPILER="$YASM_BIN"
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
