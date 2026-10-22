@@ -21,16 +21,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Initialize build-deps dist folder
-        shell: pwsh
-        run: |
-          git submodule update --init --recursive
-          if (Test-Path "third-party/build-deps") {
-              Set-Location "third-party/build-deps"
-              git checkout dist
-              Set-Location "../../"
-          }
-
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
         with:
@@ -53,6 +43,22 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-static
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
+
+      - name: Bridge MSYS2 Libraries for build-deps
+        shell: pwsh
+        run: |
+          $distDir = "third-party/build-deps/dist/Windows-AMD64"
+          if (-not (Test-Path $distDir)) {
+              New-Item -ItemType Directory -Force -Path "$distDir/include"
+              New-Item -ItemType Directory -Force -Path "$distDir/lib"
+          }
+          
+          # Copy headers and libs from MSYS2 UCRT64 so CMake finds them
+          $ucrt = "C:/msys64/ucrt64"
+          if (Test-Path $ucrt) {
+              Copy-Item -Path "$ucrt/include/*" -Destination "$distDir/include" -Recurse -Force -ErrorAction SilentlyContinue
+              Copy-Item -Path "$ucrt/lib/*" -Destination "$distDir/lib" -Recurse -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
