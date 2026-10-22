@@ -29,6 +29,9 @@ jobs:
           update: true
           install: >-
             base-devel
+            diffutils
+            yasm
+            nasm
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
@@ -44,15 +47,21 @@ jobs:
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
 
-      - name: Download FFmpeg Build Dependencies
+      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
+          mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
-          cd third-party/build-deps/dist
-          curl -L -o windows-amd64.tar.gz "https://github.com/LizardByte/build-deps/releases/latest/download/windows-amd64.tar.gz" || true
-          if [ -f windows-amd64.tar.gz ]; then
-            tar -xzf windows-amd64.tar.gz -C Windows-AMD64 --strip-components=1 || tar -xzf windows-amd64.tar.gz -C Windows-AMD64
-          fi
+          
+          # Configure build-deps to compile static libraries into the expected path
+          cmake -B third-party/build-deps/build -S third-party/build-deps \
+            -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64"
+
+          # Build and install dependencies into the dist folder
+          cmake --build third-party/build-deps/build --config Release
+          cmake --install third-party/build-deps/build
 
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
