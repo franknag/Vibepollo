@@ -19,6 +19,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Initialize build-deps dist folder
+        run: |
+          cd third-party/build-deps
+          git submodule update --init --recursive
+          git checkout dist || true
 
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
@@ -63,7 +70,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="C:/msys64/ucrt64"
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
