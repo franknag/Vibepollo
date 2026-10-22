@@ -43,6 +43,14 @@ jobs:
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
 
+      - name: Sanitize MSYS2 Environment Paths
+        shell: pwsh
+        run: |
+          $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
+          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
+          Write-Host "Successfully sanitized PATH environment variable."
+
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
