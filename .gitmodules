@@ -24,11 +24,11 @@
 [submodule "third-party/inputtino"]
 	path = third-party/inputtino
 	url = https://github.com/games-on-whales/inputtino.git
-	branch = stable
+	branch = vibeshine
 [submodule "third-party/libdisplaydevice"]
 	path = third-party/libdisplaydevice
 	url = https://github.com/LizardByte/libdisplaydevice.git
-	branch = master
+	branch = display_rework_v2
 [submodule "third-party/nanors"]
 	path = third-party/nanors
 	url = https://github.com/sleepybishop/nanors.git
