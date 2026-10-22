@@ -72,12 +72,14 @@ jobs:
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
-          # Explicitly ensure MSYS core make is installed and linked to /usr/bin/make
-          pacman -S --noconfirm --needed make diffutils
-          
+          # BRIDGE FIX: Ensure make.exe is directly available inside UCRT64 bin path
+          if [ -f /usr/bin/make.exe ]; then
+            cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
+          elif [ -f /bin/make.exe ]; then
+            cp -f /bin/make.exe /ucrt64/bin/make.exe
+          fi
+
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
-          NASM_BIN=$(cygpath -m /ucrt64/bin/nasm.exe)
-          YASM_BIN=$(cygpath -m /ucrt64/bin/yasm.exe)
           
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
@@ -86,12 +88,11 @@ jobs:
             -G "MSYS Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-            -DCMAKE_ASM_NASM_COMPILER="$NASM_BIN" \
-            -DCMAKE_ASM_YASM_COMPILER="$YASM_BIN" \
             -DBUILD_FFMPEG_SVT_AV1=OFF
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
+
 
       - name: Configure CMake Build
         run: |
