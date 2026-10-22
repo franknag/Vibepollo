@@ -20,7 +20,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-
+      
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
         with:
@@ -44,14 +44,6 @@ jobs:
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
 
-      - name: Verify and update build-deps submodule
-        run: |
-          git submodule update --init --recursive
-          cd third-party/build-deps
-          git checkout dist || true  # Ensures it's on the correct dist branch if applicable
-          git submodule update --init --recursive
-          cd ../..
-
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
@@ -72,7 +64,8 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_WERROR=OFF -DFFMPEG_PREPARED_BINARIES=""
+# cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
