@@ -28,7 +28,6 @@ jobs:
           location: 'C:\msys64'
           update: true
           install: >-
-            git ninja cmake mingw-w64-ucrt64-toolchain
             base-devel
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
