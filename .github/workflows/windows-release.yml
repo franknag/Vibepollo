@@ -62,6 +62,9 @@ jobs:
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
+          # Explicitly ensure MSYS core make is installed and linked to /usr/bin/make
+          pacman -S --noconfirm --needed make diffutils
+          
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
           NASM_BIN=$(cygpath -m /ucrt64/bin/nasm.exe)
           YASM_BIN=$(cygpath -m /ucrt64/bin/yasm.exe)
