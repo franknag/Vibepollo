@@ -89,5 +89,3 @@
 	path = third-party/libvirtualgamepad
 	url = https://github.com/Nonary/libvirtualgamepad.git
 	branch = main
-	url = https://github.com/Nonary/libvirtualdisplay.git
-	branch = master
