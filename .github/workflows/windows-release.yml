@@ -100,6 +100,7 @@ jobs:
             -G "MSYS Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+            -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
             -DBUILD_FFMPEG_SVT_AV1=OFF \
             -DMSYS2_OPTION=3
 
