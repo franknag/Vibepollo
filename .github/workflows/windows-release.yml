@@ -27,6 +27,10 @@ jobs:
           location: 'C:\msys64'
           update: true
           install: >-
+            msys/git
+            msys/make
+            msys/base-devel
+            msys/diffutils
             base-devel
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
@@ -72,11 +76,12 @@ jobs:
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
-          # BRIDGE FIX: Ensure make.exe is directly available inside UCRT64 bin path
-          if [ -f /usr/bin/make.exe ]; then
+          # Guarantee make is available to both MSYS (/usr/bin) and UCRT64 (/ucrt64/bin)
+          if [ ! -f /usr/bin/make.exe ] && [ -f /ucrt64/bin/make.exe ]; then
+            ln -s /ucrt64/bin/make.exe /usr/bin/make.exe
+          elif [ ! -f /ucrt64/bin/make.exe ] && [ -f /usr/bin/make.exe ]; then
+            mkdir -p /ucrt64/bin
             cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
-          elif [ -f /bin/make.exe ]; then
-            cp -f /bin/make.exe /ucrt64/bin/make.exe
           fi
 
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
@@ -92,7 +97,6 @@ jobs:
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
-
 
       - name: Configure CMake Build
         run: |
