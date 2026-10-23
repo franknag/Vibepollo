@@ -80,50 +80,37 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH=$(echo $PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
-          export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
-          export MAKE="/usr/bin/make"
-          
-          export CC="/ucrt64/bin/gcc.exe"
-          export CXX="/ucrt64/bin/g++.exe"
-          export AR="/ucrt64/bin/ar.exe"
-          export RANLIB="/ucrt64/bin/ranlib.exe"
-          export LD="/ucrt64/bin/ld.exe"
-          
+          export PATH=/ucrt64/bin:/usr/bin:/bin:$PATH
+          export CC=/ucrt64/bin/gcc.exe
+          export CXX=/ucrt64/bin/g++.exe
+          export AR=/ucrt64/bin/ar.exe
+          export RANLIB=/ucrt64/bin/ranlib.exe
+          export MAKE=/usr/bin/make
+
           mkdir -p /tmp
-          chmod 777 /tmp
           export TMPDIR="/tmp"
           export TMP="/tmp"
           export TEMP="/tmp"
 
           export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
           cd "$GITHUB_WORKSPACE_POSIX"
-          
-          if [ ! -f /usr/bin/make.exe ] && [ -f /ucrt64/bin/make.exe ]; then
-            ln -s /ucrt64/bin/make.exe /usr/bin/make.exe
-          elif [ ! -f /ucrt64/bin/make.exe ] && [ -f /usr/bin/make.exe ]; then
-            mkdir -p /ucrt64/bin
-            cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
-          fi
 
-          INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
-          
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
-          
-          cmake -B third-party/build-deps/build -S third-party/build-deps \
-            -G "MSYS Makefiles" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-            -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
-            -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
-            -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-            -DCMAKE_AR=/ucrt64/bin/ar.exe \
-            -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
-            -DBUILD_FFMPEG_SVT_AV1=OFF \
-            -DMSYS2_OPTION=2
 
+          cmake -S third-party/build-deps -B third-party/build-deps/build \
+          -G "Ninja" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
+          -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+          -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+          -DCMAKE_AR=/ucrt64/bin/ar.exe \
+          -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
+          -DBUILD_FFMPEG_SVT_AV1=OFF \
+          -DMSYS2_OPTION=2
+
+          cmake --build third-party/build-deps/build --config Release --target x264 -v
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
 
