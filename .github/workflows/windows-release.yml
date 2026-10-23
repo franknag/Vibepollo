@@ -26,7 +26,7 @@ jobs:
           msystem: UCRT64
           location: 'C:\msys64'
           update: true
-          path-type: strict
+          path-type: inherit
           install: >-
             msys/git
             msys/make
@@ -77,9 +77,10 @@ jobs:
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
-          MSYS2_PATH_TYPE: strict
+          MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH="/ucrt64/bin:/usr/bin:/bin"
+          export PATH=$(echo $PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
+          export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           export MAKE="/usr/bin/make"
           
           mkdir -p /tmp
@@ -108,6 +109,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
             -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
+            -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+            -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+            -DCMAKE_AR=/ucrt64/bin/ar.exe \
+            -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
             -DBUILD_FFMPEG_SVT_AV1=OFF \
             -DMSYS2_OPTION=2
 
