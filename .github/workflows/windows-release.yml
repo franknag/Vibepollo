@@ -28,6 +28,7 @@ jobs:
           update: true
           path-type: inherit
           install: >-
+            make
             msys/git
             msys/make
             msys/base-devel
