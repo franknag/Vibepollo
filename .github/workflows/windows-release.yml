@@ -76,7 +76,11 @@ jobs:
 
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
+        env:
+          MSYS2_PATH_TYPE: inherit
         run: |
+          mkdir -p /tmp
+          export TMPDIR=/tmp
           # 1. MAKE BRIDGE: Ensure make.exe exists in both /usr/bin and /ucrt64/bin
           if [ ! -f /usr/bin/make.exe ] && [ -f /ucrt64/bin/make.exe ]; then
             ln -s /ucrt64/bin/make.exe /usr/bin/make.exe
