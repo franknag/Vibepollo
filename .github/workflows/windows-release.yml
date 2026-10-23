@@ -83,6 +83,12 @@ jobs:
           export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           export MAKE="/usr/bin/make"
           
+          export CC="/ucrt64/bin/gcc.exe"
+          export CXX="/ucrt64/bin/g++.exe"
+          export AR="/ucrt64/bin/ar.exe"
+          export RANLIB="/ucrt64/bin/ranlib.exe"
+          export LD="/ucrt64/bin/ld.exe"
+          
           mkdir -p /tmp
           chmod 777 /tmp
           export TMPDIR="/tmp"
@@ -101,6 +107,7 @@ jobs:
 
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
           
+          rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
           
