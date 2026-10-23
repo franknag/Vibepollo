@@ -72,12 +72,8 @@ jobs:
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
-          # BRIDGE FIX: Ensure make.exe is directly available inside UCRT64 bin path
-          if [ -f /usr/bin/make.exe ]; then
-            cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
-          elif [ -f /bin/make.exe ]; then
-            cp -f /bin/make.exe /ucrt64/bin/make.exe
-          fi
+          # Explicitly install core MSYS make so /usr/bin/bash can find it at /usr/bin/make
+          pacman -S --noconfirm --needed msys/make msys/diffutils
 
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
           
@@ -92,7 +88,6 @@ jobs:
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
-
 
       - name: Configure CMake Build
         run: |
