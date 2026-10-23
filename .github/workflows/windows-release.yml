@@ -102,7 +102,7 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64
 
           cmake -S third-party/build-deps -B third-party/build-deps/build \
-          -G "Ninja" \
+          -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
@@ -110,7 +110,7 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=2
+          -DMSYS2_OPTION=3
 
           cmake --build third-party/build-deps/build --config Release --target x264 -v
           cmake --build third-party/build-deps/build --config Release
