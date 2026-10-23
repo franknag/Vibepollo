@@ -84,6 +84,9 @@ jobs:
           export TMPDIR="/tmp"
           unset TMP
           unset TEMP
+
+          export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
+          cd "$GITHUB_WORKSPACE_POSIX"
           
           if [ ! -f /usr/bin/make.exe ] && [ -f /ucrt64/bin/make.exe ]; then
             ln -s /ucrt64/bin/make.exe /usr/bin/make.exe
