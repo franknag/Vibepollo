@@ -34,6 +34,7 @@ jobs:
             msys/diffutils
             base-devel
             pkg-config
+            mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-x264
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-make
@@ -102,9 +103,6 @@ jobs:
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
-
-          cd third-party/build-deps/build/x264-src
-          git clone --depth 1 https://videolan.org x264-src
 
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
