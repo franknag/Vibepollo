@@ -77,7 +77,7 @@ jobs:
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         run: |
-          # Guarantee make is available to both MSYS (/usr/bin) and UCRT64 (/ucrt64/bin)
+          # 1. MAKE BRIDGE: Ensure make.exe exists in both /usr/bin and /ucrt64/bin
           if [ ! -f /usr/bin/make.exe ] && [ -f /ucrt64/bin/make.exe ]; then
             ln -s /ucrt64/bin/make.exe /usr/bin/make.exe
           elif [ ! -f /ucrt64/bin/make.exe ] && [ -f /usr/bin/make.exe ]; then
@@ -85,11 +85,11 @@ jobs:
             cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
           fi
 
-          # CRITICAL FIX: Ensure MSYS2 tmp directory exists and set clean temp paths for FFmpeg configure
+          # 2. POSIX TEMP & PATH FIX: Prevent Windows backslash leakage into sed/configure
           mkdir -p /tmp
-          export TMPDIR=/tmp
-          export TMP=/tmp
-          export TEMP=/tmp
+          export TMPDIR="/tmp"
+          unset TMP
+          unset TEMP
 
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
           
@@ -102,10 +102,11 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
             -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
             -DBUILD_FFMPEG_SVT_AV1=OFF \
-            -DMSYS2_OPTION=3
+            -DMSYS2_OPTION=2
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
+
 
       - name: Configure CMake Build
         run: |
