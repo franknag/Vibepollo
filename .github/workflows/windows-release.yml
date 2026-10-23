@@ -80,9 +80,13 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          # Keep PATH prioritizing UCRT64, but DO NOT export absolute CC/RANLIB overrides
           export PATH=$(echo $PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
           export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
+          
+          export CC=/ucrt64/bin/gcc.exe
+          export CXX=/ucrt64/bin/g++.exe
+          export AR=/ucrt64/bin/ar.exe
+          export RANLIB=/ucrt64/bin/ranlib.exe
           export MAKE=/usr/bin/make
 
           mkdir -p /tmp
@@ -97,16 +101,18 @@ jobs:
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
 
-          # CRITICAL: Use MSYS Makefiles and option 3. Remove absolute CMAKE_*_COMPILER flags 
-          # to completely prevent the C:/msys64/msys64/ double-prefix bug.
           cmake -S third-party/build-deps -B third-party/build-deps/build \
-            -G "MSYS Makefiles" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
-            -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
-            -DBUILD_FFMPEG_SVT_AV1=OFF \
-            -DMSYS2_OPTION=3
+          -G "Ninja" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
+          -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+          -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+          -DCMAKE_AR=/ucrt64/bin/ar.exe \
+          -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
+          -DBUILD_FFMPEG_SVT_AV1=OFF \
+          -DMSYS2_OPTION=3
 
+          cmake --build third-party/build-deps/build --config Release --target x264 -v
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
 
