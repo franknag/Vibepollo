@@ -80,20 +80,17 @@ jobs:
           MSYS2_PATH_TYPE: inherit
         run: |
           mkdir -p /tmp
-          export TMPDIR=/tmp
-          # 1. MAKE BRIDGE: Ensure make.exe exists in both /usr/bin and /ucrt64/bin
+          chmod 777 /tmp
+          export TMPDIR="/tmp"
+          unset TMP
+          unset TEMP
+          
           if [ ! -f /usr/bin/make.exe ] && [ -f /ucrt64/bin/make.exe ]; then
             ln -s /ucrt64/bin/make.exe /usr/bin/make.exe
           elif [ ! -f /ucrt64/bin/make.exe ] && [ -f /usr/bin/make.exe ]; then
             mkdir -p /ucrt64/bin
             cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
           fi
-
-          # 2. POSIX TEMP & PATH FIX: Prevent Windows backslash leakage into sed/configure
-          mkdir -p /tmp
-          export TMPDIR="/tmp"
-          unset TMP
-          unset TEMP
 
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
           
