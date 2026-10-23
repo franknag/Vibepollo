@@ -24,7 +24,6 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          location: 'C:\msys64'
           update: true
           path-type: inherit
           install: >-
@@ -116,8 +115,7 @@ jobs:
           -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
 
-          cmake --build third-party/build-deps/build --config Release --target x264 -v
-          cmake --build third-party/build-deps/build --config Release --enable-static
+          cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
 
       - name: Configure CMake Build
