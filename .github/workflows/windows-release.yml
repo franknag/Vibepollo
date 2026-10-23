@@ -103,6 +103,9 @@ jobs:
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
 
+          cd third-party/build-deps/build/x264-src
+          git clone --depth 1 https://videolan.org x264-src
+
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
