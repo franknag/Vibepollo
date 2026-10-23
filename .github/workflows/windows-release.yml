@@ -79,6 +79,9 @@ jobs:
         env:
           MSYS2_PATH_TYPE: strict
         run: |
+          export PATH="/ucrt64/bin:/usr/bin:/bin"
+          export MAKE="/usr/bin/make"
+          
           mkdir -p /tmp
           chmod 777 /tmp
           export TMPDIR="/tmp"
@@ -110,7 +113,6 @@ jobs:
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
-
 
       - name: Configure CMake Build
         run: |
