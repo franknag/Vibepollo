@@ -114,11 +114,10 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DBUILD_X264_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps")" \
           -DMSYS2_OPTION=2
 
           cmake --build third-party/build-deps/build --config Release --target x264 -v
-          cmake --build third-party/build-deps/build --config Release
+          cmake --build third-party/build-deps/build --config Release --enable-static
           cmake --install third-party/build-deps/build
 
       - name: Configure CMake Build
