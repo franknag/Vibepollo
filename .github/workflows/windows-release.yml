@@ -82,8 +82,8 @@ jobs:
           mkdir -p /tmp
           chmod 777 /tmp
           export TMPDIR="/tmp"
-          unset TMP
-          unset TEMP
+          export TMP="/tmp"
+          export TEMP="/tmp"
 
           export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
           cd "$GITHUB_WORKSPACE_POSIX"
