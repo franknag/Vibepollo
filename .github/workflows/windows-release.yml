@@ -94,7 +94,8 @@ jobs:
             -G "MSYS Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
-            -DBUILD_FFMPEG_SVT_AV1=OFF
+            -DBUILD_FFMPEG_SVT_AV1=OFF \
+            -DMSYS2_OPTION=3
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
