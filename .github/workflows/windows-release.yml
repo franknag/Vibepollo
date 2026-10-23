@@ -107,13 +107,13 @@ jobs:
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps")" \
+          -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DBUILD_X264=OFF \
+          -DBUILD_X264_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps")" \
           -DMSYS2_OPTION=2
 
           cmake --build third-party/build-deps/build --config Release --target x264 -v
