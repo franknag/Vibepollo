@@ -98,7 +98,7 @@ jobs:
 
           # Configure cleanly without forcing absolute compiler paths that cause double-prefixing
           cmake -S third-party/build-deps -B third-party/build-deps/build \
-          -G "Ninja" \
+          -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
           -DCMAKE_MAKE_PROGRAM=/usr/bin/make \
