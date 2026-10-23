@@ -85,6 +85,12 @@ jobs:
             cp -f /usr/bin/make.exe /ucrt64/bin/make.exe
           fi
 
+          # CRITICAL FIX: Ensure MSYS2 tmp directory exists and set clean temp paths for FFmpeg configure
+          mkdir -p /tmp
+          export TMPDIR=/tmp
+          export TMP=/tmp
+          export TEMP=/tmp
+
           INSTALL_DIR=$(cygpath -m "${GITHUB_WORKSPACE}/third-party/build-deps/dist/Windows-AMD64")
           
           mkdir -p third-party/build-deps/build
