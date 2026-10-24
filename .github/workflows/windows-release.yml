@@ -130,7 +130,7 @@ jobs:
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
           
-          # Unset manual overrides so build-deps internal CMake configuration handles binutils safely via option 3
+          # Unset manual overrides so build-deps option 3 handles binutils natively
           unset AR
           unset RANLIB
           export MAKE=make
