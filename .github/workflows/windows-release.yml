@@ -108,17 +108,42 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
+          # Create path-translating wrappers for ar and ranlib to bridge MSYS POSIX paths to Windows paths for UCRT64 tools
+          mkdir -p /tmp/bin
+          cat << 'EOF' > /tmp/bin/ranlib
+          #!/bin/bash
+          args=("$@")
+          for i in "${!args[@]}"; do
+              if [[ "${args[$i]}" == /* ]]; then
+                  args[$i]="$(cygpath -m "${args[$i]}")"
+              fi
+          done
+          exec /ucrt64/bin/ranlib.exe "${args[@]}"
+          EOF
+
+          cat << 'EOF' > /tmp/bin/ar
+          #!/bin/bash
+          args=("$@")
+          for i in "${!args[@]}"; do
+              if [[ "${args[$i]}" == /* ]]; then
+                  args[$i]="$(cygpath -m "${args[$i]}")"
+              fi
+          done
+          exec /ucrt64/bin/ar.exe "${args[@]}"
+          EOF
+
+          chmod +x /tmp/bin/ranlib /tmp/bin/ar
+
+          export PATH="/tmp/bin:/usr/bin:/bin:/ucrt64/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
           export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          export AR=/usr/bin/ar.exe
-          export RANLIB=/usr/bin/ranlib.exe
+          export AR=ar
+          export RANLIB=ranlib
           export MAKE=/usr/bin/make
 
-          mkdir -p /tmp
           export TMPDIR="/tmp"
           export TMP="/tmp"
           export TEMP="/tmp"
@@ -137,8 +162,8 @@ jobs:
           -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/usr/bin/ar.exe \
-          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
+          -DCMAKE_AR=ar \
+          -DCMAKE_RANLIB=ranlib \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
 
