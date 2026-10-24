@@ -15,10 +15,10 @@ jobs:
         shell: msys2 {0}
 
     steps:
-      - name: Checkout Repository with Submodules
+      - name: Checkout Repository without Submodules
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
 
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
@@ -54,24 +54,30 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
 
-      - name: Force LF Line Endings & Initialize Submodules properly
+      - name: Initialize Submodules with Clean LF Line Endings
         shell: msys2 {0}
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
-          git submodule update --init --recursive --force
           
-          # Setup gitattributes mapping required by build-deps x264 submodule on Windows
+          # Initialize submodules safely with strict LF formatting
+          git submodule update --init --recursive
+          
+          # Handle build-deps and x264 submodules according to LizardByte specifications
           if [ -d "third-party/build-deps" ]; then
             cd third-party/build-deps
-            git submodule update --init --recursive --force
-            if [ -d ".git" ] && [ -d "third-party/FFmpeg/x264" ]; then
+            git submodule update --init --recursive
+            
+            if [ -d ".git" ]; then
               mkdir -p .git/modules/third-party/FFmpeg/x264/info
               if [ -f ".gitattributes" ]; then
                 cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
               fi
+            fi
+            
+            if [ -d "third-party/FFmpeg/x264" ]; then
               cd third-party/FFmpeg/x264
-              git checkout HEAD -- .
+              git checkout --force HEAD -- .
               git clean -fdx
             fi
           fi
@@ -80,7 +86,7 @@ jobs:
         shell: pwsh
         run: |
           $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          $cleanedPath =$envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
 
@@ -93,35 +99,19 @@ jobs:
           }
           $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
+              Write-Host "Copying npm-cli.js from $($found.FullName) to$targetDir"
               Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Bridge Pre-installed Pacman x264 to satisfy build-deps
-        shell: msys2 {0}
-        run: |
-          mkdir -p third-party/build-deps/build/x264/lib
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/include
-          
-          # Pull the pacman UCRT64 x264 library directly into expected build-deps paths
-          if [ -f /ucrt64/lib/libx264.a ]; then
-            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
-            cp /ucrt64/lib/libx264.a third-party/build-deps/dist/Windows-AMD64/lib/
-          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
-          fi
-
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH=$(echo $PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
+          export PATH=$(echo$PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
           export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           
           export CC=/ucrt64/bin/gcc.exe
@@ -182,7 +172,7 @@ jobs:
           Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
           
           $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr = $hashObj.Hash.ToLower()
+          $hashStr =$hashObj.Hash.ToLower()
           "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
           
           Write-Host "--- Generated Checksum ---"
