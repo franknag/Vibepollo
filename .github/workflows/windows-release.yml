@@ -1,11 +1,9 @@
 name: Generate Windows Release
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - "v*"
-  pull_request:
+    branches: [ ApolloVibeMerged ]
+  workflow_dispatch:
 
 jobs:
   build-windows:
