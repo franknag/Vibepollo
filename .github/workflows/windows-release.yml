@@ -142,6 +142,19 @@ jobs:
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
 
+          # Fallback check & safety copy if build-deps installed ffmpeg into a nested folder structure
+          if [ -d "third-party/build-deps/build/ffmpeg" ]; then
+            cmake --install third-party/build-deps/build/ffmpeg --prefix "$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" || true
+          fi
+          
+          # Ensure directories exist and copy built artifacts if located inside build tree
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
+          find third-party/build-deps/build -name "libavcodec.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
+          find third-party/build-deps/build -name "libswscale.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
+          find third-party/build-deps/build -name "libavformat.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
+          find third-party/build-deps/build -name "libavutil.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
+          find third-party/build-deps/build -name "libswresample.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
+
       - name: Configure CMake Build
         shell: msys2 {0}
         run: |
