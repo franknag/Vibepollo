@@ -80,7 +80,7 @@ jobs:
         shell: pwsh
         run: |
           $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          $cleanedPath =$envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
       - name: Ensure NPM CLI Path Compatibility for CMake
@@ -92,7 +92,7 @@ jobs:
           }
           $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
+              Write-Host "Copying npm-cli.js from $($found.FullName) to$targetDir"
               Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
@@ -108,7 +108,7 @@ jobs:
               takeown /f $target
               icacls $target /grant "Administrators:F"
               Remove-Item -Force $target -ErrorAction SilentlyContinue
-              Copy-Item -Path $source -Destination $target -Force
+              Copy-Item -Path $source -Destination$target -Force
               Write-Host "Successfully replaced System32 bash.exe"
           } else {
               Write-Warning "MSYS2 bash.exe not found at $source"
@@ -118,14 +118,14 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
+          export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
           export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
           
-          # Create path-translating wrappers for ar and ranlib, and strip Windows CRLF line endings
+          # Create path-translating wrappers for ar and ranlib, strip CRLF, and ensure proper execution
           cat << 'EOF' > /tmp/ar-wrap.sh
           #!/bin/bash
           new_args=()
@@ -158,12 +158,12 @@ jobs:
 
           export AR="/tmp/ar-wrap.sh"
           export RANLIB="/tmp/ranlib-wrap.sh"
-          export MAKE=/usr/bin/make
+          export MAKE=make
           
-          mkdir -p /tmp
-          export TMPDIR="/tmp"
-          export TMP="/tmp"
-          export TEMP="/tmp"
+          mkdir -p /tmp/deps-tmp
+          export TMPDIR="/tmp/deps-tmp"
+          export TMP="/tmp/deps-tmp"
+          export TEMP="/tmp/deps-tmp"
           export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
           
           cd "$GITHUB_WORKSPACE_POSIX"
@@ -203,21 +203,4 @@ jobs:
           
           if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
           if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
-          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
-          
-          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
-          Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
-          
-          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr = $hashObj.Hash.ToLower()
-          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
-          
-          Write-Host "--- Generated Checksum ---"
-          Get-Content "apollovibe-windows-x64.zip.sha256"
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: apollovibe-windows-x64-release
-          path: |
-            apollovibe-windows-x64.zip
-            apollovibe-windows-x64.zip.sha256
+          if (Test-Path "tools") { Copy-Item -Recurse -Force
