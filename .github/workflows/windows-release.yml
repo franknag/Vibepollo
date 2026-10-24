@@ -125,21 +125,8 @@ jobs:
 
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/include
+          mkdir -p third-party/build-deps/dist/Windows-AMD64
 
-          # Pre-populate the dist directory with the native UCRT64 x264 library so FFmpeg finds it directly
-          if [ -f /ucrt64/lib/libx264.a ]; then
-            cp /ucrt64/lib/libx264.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
-          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
-          fi
-          
-          if [ -d /ucrt64/include/x264.h ]; then
-            cp /ucrt64/include/x264*.h third-party/build-deps/dist/Windows-AMD64/include/ 2>/dev/null || true
-          fi
-
-          # Configure build-deps using Option 2 (keeps nv-codec-headers working cleanly)
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -149,6 +136,7 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
+          -DBUILD_FFMPEG_X264=OFF \
           -DMSYS2_OPTION=2
 
           cmake --build third-party/build-deps/build --config Release
