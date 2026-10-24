@@ -7,12 +7,11 @@ on:
 
 jobs:
   build-windows:
-    name: Build ApolloVibe 2026.6.1-ms6 (Windows x64)
     runs-on: windows-latest
-    
+
     defaults:
       run:
-        shell: msys2 {0}
+        shell: bash
 
     steps:
       - name: Checkout Repository with Submodules
@@ -43,62 +42,26 @@ jobs:
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
 
-      - name: Ensure NPM CLI Path Compatibility for CMake
-        shell: pwsh
-        run: |
-          $targetDir = "C:/msys64/ucrt64/lib/node_modules/npm/bin"
-          if (-not (Test-Path $targetDir)) {
-              New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-          }
-          $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
-              Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
-          } else {
-              Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
-              Set-Content -Path "$targetDir/npm-cli.js" -Value ""
-          }
-
       - name: Configure CMake Build
+        shell: bash
+        env:
+          CC: /ucrt64/bin/gcc.exe
+          CXX: /ucrt64/bin/g++.exe
+          PATH: /ucrt64/bin:/usr/local/bin:/usr/bin:/bin:$PATH
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+            -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+            -DCMAKE_RC_COMPILER=/ucrt64/bin/windres.exe
 
       - name: Compile ApolloVibe (Sunshine Host)
+        shell: bash
+        env:
+          CC: /ucrt64/bin/gcc.exe
+          CXX: /ucrt64/bin/g++.exe
+          PATH: /ucrt64/bin:/usr/local/bin:/usr/bin:/bin:$PATH
         run: |
           cd build
           ninja sunshine
-
-      - name: Package Windows Artifacts & Generate Checksums
-        shell: pwsh
-        run: |
-          $distDir = "dist/apollovibe-windows-x64"
-          if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
-          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-          
-          # Copy core executable and asset structures
-          if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
-          if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
-          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
-          
-          # Create deployment archive in root workspace
-          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
-          Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
-          
-          # Generate SHA-256 verification checksum file matching standard format
-          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr = $hashObj.Hash.ToLower()
-          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
-          
-          # Output checksum to logs for build verification
-          Write-Host "--- Generated Checksum ---"
-          Get-Content "apollovibe-windows-x64.zip.sha256"
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: apollovibe-windows-x64-release
-          path: |
-            apollovibe-windows-x64.zip
-            apollovibe-windows-x64.zip.sha256
