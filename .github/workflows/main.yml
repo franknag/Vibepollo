@@ -20,10 +20,32 @@ jobs:
           msystem: UCRT64
           update: true
           install: >-
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-cmake
             git
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
 
-      - name: Build ApolloVibe for Windows
+      - name: Configure build directory
         shell: cmd
-        run: build_apollovibe.bat
+        run: |
+          call build_apollovibe_rebase.bat
+
+      - name: Package ApolloVibe portable release
+        shell: cmd
+        run: |
+          if "%GITHUB_REF_NAME%"=="" (
+            set "VERSION=dev-build"
+          ) else (
+            set "VERSION=%GITHUB_REF_NAME%"
+          )
+          call package_apollovibe.bat "%VERSION%"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollovibe-windows-portable
+          path: |
+            apollovibe-windows-x64.zip
+            build_apollovibe.log
+          if-no-files-found: error
+          retention-days: 14
