@@ -15,10 +15,10 @@ jobs:
         shell: msys2 {0}
 
     steps:
-      - name: Checkout Repository without Submodules
+      - name: Checkout Repository with Submodules
         uses: actions/checkout@v4
         with:
-          submodules: false
+          submodules: recursive
 
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
@@ -34,6 +34,8 @@ jobs:
             pkg-config
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-x264
+            mingw-w64-ucrt-x86_64-git
+            mingw-w64-ucrt-x86_64-make
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-toolchain
@@ -50,27 +52,30 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
 
-      - name: Initialize Submodules and Fix x264 Line Endings
+      - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
-          
-          git submodule update --init --recursive
-          
-          cd third-party/build-deps
-          git submodule update --init --recursive
-          
-          if [ -d ".git" ]; then
-            mkdir -p .git/modules/third-party/FFmpeg/x264/info
-            if [ -f ".gitattributes" ]; then
-              cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
+
+          git submodule update --init --recursive --force --verbose
+
+          if [ -d "third-party/build-deps" ]; then
+            cd third-party/build-deps
+            git submodule update --init --recursive --force --verbose
+            
+            if [ -d ".git" ]; then
+              mkdir -p .git/modules/third-party/FFmpeg/x264/info
+              if [ -f ".gitattributes" ]; then
+                cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
+              fi
             fi
-          fi
-          
-          if [ -d "third-party/FFmpeg/x264" ]; then
-            cd third-party/FFmpeg/x264
-            git checkout HEAD -- .
+            
+            if [ -d "third-party/FFmpeg/x264" ]; then
+              cd third-party/FFmpeg/x264
+              git checkout --force HEAD -- .
+              git clean -fdx
+            fi
           fi
 
       - name: Sanitize MSYS2 Environment Paths
@@ -97,21 +102,6 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Bridge Pacman x264 to Prevent Build-Deps Indexing Failures
-        shell: msys2 {0}
-        run: |
-          mkdir -p third-party/build-deps/build/x264/lib
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/include
-          
-          if [ -f /ucrt64/lib/libx264.a ]; then
-            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
-            cp /ucrt64/lib/libx264.a third-party/build-deps/dist/Windows-AMD64/lib/
-          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
-          fi
-
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
@@ -137,6 +127,7 @@ jobs:
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
 
+          # Configure build-deps
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -147,6 +138,14 @@ jobs:
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
+
+          # Bridge pre-built UCRT64 x264 library directly into the expected build path before compiling
+          mkdir -p third-party/build-deps/build/x264/lib
+          if [ -f /ucrt64/lib/libx264.a ]; then
+            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
+          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
+            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
+          fi
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
