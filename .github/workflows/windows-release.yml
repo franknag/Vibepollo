@@ -125,9 +125,21 @@ jobs:
 
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
-          mkdir -p third-party/build-deps/dist/Windows-AMD64
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/include
 
-          # 1. Configure build-deps using Option 2 (safe for nv-codec-headers)
+          # Pre-populate the dist directory with the native UCRT64 x264 library so FFmpeg finds it directly
+          if [ -f /ucrt64/lib/libx264.a ]; then
+            cp /ucrt64/lib/libx264.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
+          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
+            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
+          fi
+          
+          if [ -d /ucrt64/include/x264.h ]; then
+            cp /ucrt64/include/x264*.h third-party/build-deps/dist/Windows-AMD64/include/ 2>/dev/null || true
+          fi
+
+          # Configure build-deps using Option 2 (keeps nv-codec-headers working cleanly)
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -139,21 +151,6 @@ jobs:
           -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
 
-          # 2. Bridge pre-built UCRT64 x264 directly into the build structure post-configuration
-          mkdir -p third-party/build-deps/build/x264/lib
-          if [ -f /ucrt64/lib/libx264.a ]; then
-            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
-            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/libx264.a
-          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
-          fi
-          
-          if [ -d /ucrt64/include ]; then
-            cp -r /ucrt64/include/x264*.h third-party/build-deps/build/x264/ 2>/dev/null || true
-          fi
-
-          # 3. Build and install dependencies smoothly
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
 
