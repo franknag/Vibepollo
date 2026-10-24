@@ -9,10 +9,10 @@ jobs:
   build-windows:
     name: Build ApolloVibe Custom (Windows x64)
     runs-on: windows-latest
-    
+
     defaults:
       run:
-        shell: msys2 {0}
+        shell: bash
 
     steps:
       - name: Checkout Repository with Submodules
@@ -52,116 +52,108 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-libvpl
-      - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
-        shell: msys2 {0}
+
+      - name: Initialize and sync nested submodules
+        shell: bash
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
+          git submodule sync --recursive
           git submodule update --init --recursive --force --verbose
-          if [ -d "third-party/build-deps" ]; then
-            cd third-party/build-deps
-            git submodule update --init --recursive --force --verbose
-            
-            if [ -d ".git" ]; then
-              mkdir -p .git/modules/third-party/FFmpeg/x264/info
-              if [ -f ".gitattributes" ]; then
-                cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
-              fi
-            fi
-            
-            if [ -d "third-party/FFmpeg/x264" ]; then
-              cd third-party/FFmpeg/x264
-              git checkout --force HEAD -- .
-              git clean -fdx
-            fi
-          fi
+
       - name: Sanitize MSYS2 Environment Paths
         shell: pwsh
         run: |
-          $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
-          [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
-          Write-Host "Successfully sanitized PATH environment variable."
-      - name: Ensure NPM CLI Path Compatibility for CMake
+          $envPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+          $cleanedPath = ($envPath -split ';' | Where-Object {
+            $_ -notmatch 'msys64\\msys64' -and $_ -notmatch 'msys64/msys64'
+          }) -join ';'
+          [Environment]::SetEnvironmentVariable('PATH', $cleanedPath, 'Process')
+          Write-Host 'Successfully sanitized PATH environment variable.'
+
+      - name: Ensure npm CLI path compatibility for CMake
         shell: pwsh
         run: |
-          $targetDir = "C:/msys64/ucrt64/lib/node_modules/npm/bin"
+          $targetDir = 'C:/msys64/ucrt64/lib/node_modules/npm/bin'
           if (-not (Test-Path $targetDir)) {
-              New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+            New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
           }
-          $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          $found = Get-ChildItem -Path 'C:\','D:\' -Filter 'npm-cli.js' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
-              Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
+            Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
+            Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
-              Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
-              Set-Content -Path "$targetDir/npm-cli.js" -Value ""
+            Write-Warning 'npm-cli.js source not found yet; creating placeholder structure.'
+            Set-Content -Path "$targetDir/npm-cli.js" -Value ''
           }
+
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
-        shell: msys2 {0}
+        shell: bash
         env:
           MSYS2_PATH_TYPE: inherit
+          PATH: /usr/bin:/bin:/ucrt64/bin:${{ env.PATH }}
+          PKG_CONFIG: /ucrt64/bin/pkg-config
+          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
+          CC: /ucrt64/bin/gcc.exe
+          CXX: /ucrt64/bin/g++.exe
+          AR: /usr/bin/ar.exe
+          RANLIB: /usr/bin/ranlib.exe
+          MAKE: /usr/bin/make
         run: |
-          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
-          export PKG_CONFIG="/ucrt64/bin/pkg-config"
-          export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
-          
-          export CC=/ucrt64/bin/gcc.exe
-          export CXX=/ucrt64/bin/g++.exe
-          export AR=/usr/bin/ar.exe
-          export RANLIB=/usr/bin/ranlib.exe
-          export MAKE=/usr/bin/make
-          mkdir -p /tmp
           export TMPDIR="/tmp"
           export TMP="/tmp"
           export TEMP="/tmp"
-          export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
+          export GITHUB_WORKSPACE_POSIX="$(cygpath -u "$GITHUB_WORKSPACE")"
           cd "$GITHUB_WORKSPACE_POSIX"
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
           cmake -S third-party/build-deps -B third-party/build-deps/build \
-          -G "MSYS Makefiles" \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
-          -DCMAKE_PREFIX_PATH="/ucrt64" \
-          -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
-          -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/usr/bin/ar.exe \
-          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
-          -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=2
+            -G "MSYS Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
+            -DCMAKE_PREFIX_PATH="/ucrt64" \
+            -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
+            -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
+            -DCMAKE_AR=/usr/bin/ar.exe \
+            -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
+            -DBUILD_FFMPEG_SVT_AV1=OFF \
+            -DMSYS2_OPTION=2
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
+
       - name: Configure CMake Build
+        shell: bash
         run: |
-          mkdir build
-          cd build
-          cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          mkdir -p build
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
       - name: Compile ApolloVibe (Sunshine Host)
+        shell: bash
         run: |
-          cd build
-          ninja sunshine
+          cmake --build build --target sunshine --config Release
+
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
-          $distDir = "dist/apollovibe-windows-x64"
-          if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+          $distDir = Join-Path $PWD 'dist/apollovibe-windows-x64'
+          if (Test-Path 'dist') { Remove-Item -Recurse -Force 'dist' }
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-          
-          if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
-          if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
-          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
-          
-          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
-          Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
-          
-          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
+
+          if (Test-Path 'build/sunshine.exe') { Copy-Item 'build/sunshine.exe' -Destination $distDir -Force }
+          if (Test-Path 'assets') { Copy-Item -Recurse -Force 'assets' -Destination $distDir }
+          if (Test-Path 'tools') { Copy-Item -Recurse -Force 'tools' -Destination $distDir }
+
+          if (Test-Path 'apollovibe-windows-x64.zip') { Remove-Item 'apollovibe-windows-x64.zip' -Force }
+          Compress-Archive -Path $distDir -DestinationPath 'apollovibe-windows-x64.zip' -Force
+
+          $hashObj = Get-FileHash -Path 'apollovibe-windows-x64.zip' -Algorithm SHA256
           $hashStr = $hashObj.Hash.ToLower()
-          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
-          
-          Write-Host "--- Generated Checksum ---"
-          Get-Content "apollovibe-windows-x64.zip.sha256"
+          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii 'apollovibe-windows-x64.zip.sha256'
+
+          Write-Host '--- Generated Checksum ---'
+          Get-Content 'apollovibe-windows-x64.zip.sha256'
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
