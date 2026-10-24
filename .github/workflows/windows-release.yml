@@ -54,39 +54,38 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
 
-      - name: Initialize Submodules with Clean LF Line Endings
+      - name: Initialize Submodules and Fix x264 Line Endings (LizardByte Specification)
         shell: msys2 {0}
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
           
-          # Initialize submodules safely with strict LF formatting
+          # Initialize top-level submodules
           git submodule update --init --recursive
           
-          # Handle build-deps and x264 submodules according to LizardByte specifications
-          if [ -d "third-party/build-deps" ]; then
-            cd third-party/build-deps
-            git submodule update --init --recursive
-            
-            if [ -d ".git" ]; then
-              mkdir -p .git/modules/third-party/FFmpeg/x264/info
-              if [ -f ".gitattributes" ]; then
-                cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
-              fi
+          # Navigate into build-deps and initialize its submodules
+          cd third-party/build-deps
+          git submodule update --init --recursive
+          
+          # Apply mandatory Windows gitattributes mapping for x264 submodule
+          if [ -d ".git" ]; then
+            mkdir -p .git/modules/third-party/FFmpeg/x264/info
+            if [ -f ".gitattributes" ]; then
+              cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
             fi
-            
-            if [ -d "third-party/FFmpeg/x264" ]; then
-              cd third-party/FFmpeg/x264
-              git checkout --force HEAD -- .
-              git clean -fdx
-            fi
+          fi
+          
+          # Force checkout and cleanup x264 files to enforce LF endings
+          if [ -d "third-party/FFmpeg/x264" ]; then
+            cd third-party/FFmpeg/x264
+            git checkout HEAD -- .
           fi
 
       - name: Sanitize MSYS2 Environment Paths
         shell: pwsh
         run: |
           $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath =$envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
 
@@ -99,7 +98,7 @@ jobs:
           }
           $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to$targetDir"
+              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
               Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
@@ -111,7 +110,7 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH=$(echo$PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
+          export PATH=$(echo $PATH | tr ':' '\n' | grep -iv "mingw64" | tr '\n' ':')
           export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           
           export CC=/ucrt64/bin/gcc.exe
@@ -172,7 +171,7 @@ jobs:
           Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
           
           $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr =$hashObj.Hash.ToLower()
+          $hashStr = $hashObj.Hash.ToLower()
           "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
           
           Write-Host "--- Generated Checksum ---"
