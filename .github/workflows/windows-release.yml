@@ -107,12 +107,10 @@ jobs:
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
-          PKG_CONFIG: /ucrt64/bin/pkg-config
-          PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
         run: |
           export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
-          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
+          export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
@@ -136,6 +134,7 @@ jobs:
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
+          -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
           -DCMAKE_AR=/usr/bin/ar.exe \
