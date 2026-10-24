@@ -103,7 +103,6 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          # Ensure UCRT64 bin is first in PATH so native tools are preferred
           export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
           export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
@@ -111,7 +110,7 @@ jobs:
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
           
-          # Let the toolchain resolve AR/RANLIB automatically instead of forcing /usr/bin mismatches
+          # Leave AR and RANLIB unset so build-deps option 3 can wrap them correctly
           unset AR
           unset RANLIB
           
@@ -135,7 +134,7 @@ jobs:
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=2
+          -DMSYS2_OPTION=3
           
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
