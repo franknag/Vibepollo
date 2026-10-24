@@ -97,6 +97,21 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
+      - name: Fix Windows System32 Bash WSL Stub Conflict
+        shell: pwsh
+        run: |
+          $target = "C:\Windows\System32\bash.exe"
+          $source = "C:\msys64\usr\bin\bash.exe"
+          if (Test-Path $source) {
+              Write-Host "Replacing WSL bash.exe stub with MSYS2 bash..."
+              takeown /f $target
+              icacls $target /grant "Administrators:F"
+              Remove-Item -Force $target -ErrorAction SilentlyContinue
+              Copy-Item -Path $source -Destination $target -Force
+              Write-Host "Successfully replaced System32 bash.exe"
+          } else {
+              Write-Warning "MSYS2 bash.exe not found at $source"
+          }
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
