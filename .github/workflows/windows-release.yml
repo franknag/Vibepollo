@@ -136,8 +136,7 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DENABLE_X264=ON \
-          -DMSYS2_OPTION=2
+          -DMSYS2_OPTION=3
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
