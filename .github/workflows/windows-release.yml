@@ -143,12 +143,12 @@ jobs:
           cmake --install third-party/build-deps/build
 
       - name: Configure CMake Build
+        shell: msys2 {0}
         run: |
-          mkdir build
-          cd build
-          cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
+        shell: msys2 {0}
         run: |
           cd build
           ninja sunshine
