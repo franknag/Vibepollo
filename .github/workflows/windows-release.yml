@@ -127,7 +127,6 @@ jobs:
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
 
-          # Configure build-deps
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -137,15 +136,8 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
+          -DENABLE_X264=ON \
           -DMSYS2_OPTION=2
-
-          # Bridge pre-built UCRT64 x264 library directly into the expected build path before compiling
-          mkdir -p third-party/build-deps/build/x264/lib
-          if [ -f /ucrt64/lib/libx264.a ]; then
-            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
-          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
-            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
-          fi
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
