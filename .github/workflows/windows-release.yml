@@ -91,6 +91,21 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
+      - name: Bridge MSYS2 Pre-installed x264 into Build-Deps
+        shell: msys2 {0}
+        run: |
+          mkdir -p third-party/build-deps/build/x264/lib
+          if [ -f /ucrt64/lib/libx264.a ]; then
+            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
+          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
+            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
+          fi
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/include
+          if [ -f third-party/build-deps/build/x264/lib/libx264.a ]; then
+            cp third-party/build-deps/build/x264/lib/libx264.a third-party/build-deps/dist/Windows-AMD64/lib/
+          fi
+
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
