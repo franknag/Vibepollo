@@ -129,8 +129,10 @@ jobs:
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          export AR=/ucrt64/bin/ar.exe
-          export RANLIB=/ucrt64/bin/ranlib.exe
+          
+          # Unset manual overrides so build-deps internal CMake configuration handles binutils safely via option 3
+          unset AR
+          unset RANLIB
           export MAKE=make
           
           mkdir -p /tmp/deps-tmp
@@ -151,10 +153,8 @@ jobs:
           -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/ucrt64/bin/ar.exe \
-          -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=2
+          -DMSYS2_OPTION=3
           
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
