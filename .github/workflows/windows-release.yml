@@ -1,31 +1,73 @@
 name: Generate Windows Release
 
 on:
-  push:
-    branches: [ ApolloVibeMerged ]
   workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
 
 jobs:
   build-windows:
-    name: Build ApolloVibe Custom (Windows x64)
-    runs-on: windows-latest
-    
+    name: Build Windows
+    runs-on: windows-2022
+    timeout-minutes: 90
+
     defaults:
       run:
         shell: msys2 {0}
 
+    env:
+      MSYSTEM: UCRT64
+      CHERE_INVOKING: 1
+      BUILD_TYPE: Release
+
     steps:
-      - name: Checkout Repository with Submodules
+      - name: Checkout source and submodules
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
+          lfs: true
 
-      - name: Set up MSYS2 Environment & Dependencies
+      - name: Verify build-deps and FFmpeg bundle
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo "Syncing and updating submodules..."
+          git submodule sync --recursive
+          git submodule update --init --recursive --checkout
+
+          echo "Submodule status:"
+          git submodule status --recursive || true
+
+          echo "Check third-party directory:"
+          ls -la third-party || true
+          ls -la third-party/build-deps || true
+          ls -la third-party/build-deps/dist || true
+
+          if [ ! -d "third-party/build-deps" ]; then
+            echo "ERROR: third-party/build-deps is missing."
+            exit 1
+          fi
+
+          if [ ! -d "third-party/build-deps/dist" ]; then
+            echo "ERROR: third-party/build-deps/dist is missing."
+            exit 1
+          fi
+
+          if [ ! -d "third-party/build-deps/dist/Windows-AMD64" ]; then
+            echo "ERROR: missing FFmpeg bundle directory: third-party/build-deps/dist/Windows-AMD64"
+            find third-party/build-deps -maxdepth 3 -type d | sort || true
+            exit 1
+          fi
+
+      - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          path-type: inherit
           install: >-
             git
             make
@@ -40,137 +82,44 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-toolchain
             mingw-w64-ucrt-x86_64-openssl
-            mingw-w64-ucrt-x86_64-boost
-            mingw-w64-ucrt-x86_64-opus
+            mingw-w64-ucrt-x86_64-curl
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-libminiupnpc
             mingw-w64-ucrt-x86_64-ffmpeg
-            mingw-w64-ucrt-x86_64-miniupnpc
-            mingw-w64-ucrt-x86_64-cppwinrt
-            mingw-w64-ucrt-x86_64-curl-winssl
-            mingw-w64-ucrt-x86_64-qt6-static
-            mingw-w64-ucrt-x86_64-MinHook
-            mingw-w64-ucrt-x86_64-nodejs
-            mingw-w64-ucrt-x86_64-nasm
-            mingw-w64-ucrt-x86_64-yasm
-            mingw-w64-ucrt-x86_64-libvpl
-      - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
-        shell: msys2 {0}
+          path-type: inherit
+          cache: true
+
+      - name: Confirm FFmpeg bundle exists
+        shell: bash
         run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-          git submodule update --init --recursive --force --verbose
-          if [ -d "third-party/build-deps" ]; then
-            cd third-party/build-deps
-            git submodule update --init --recursive --force --verbose
-            
-            if [ -d ".git" ]; then
-              mkdir -p .git/modules/third-party/FFmpeg/x264/info
-              if [ -f ".gitattributes" ]; then
-                cp .gitattributes .git/modules/third-party/FFmpeg/x264/info/attributes
-              fi
-            fi
-            
-            if [ -d "third-party/FFmpeg/x264" ]; then
-              cd third-party/FFmpeg/x264
-              git checkout --force HEAD -- .
-              git clean -fdx
-            fi
-          fi
-      - name: Sanitize MSYS2 Environment Paths
-        shell: pwsh
-        run: |
-          $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
-          [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
-          Write-Host "Successfully sanitized PATH environment variable."
-      - name: Ensure NPM CLI Path Compatibility for CMake
-        shell: pwsh
-        run: |
-          $targetDir = "C:/msys64/ucrt64/lib/node_modules/npm/bin"
-          if (-not (Test-Path $targetDir)) {
-              New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-          }
-          $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
-              Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
-          } else {
-              Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
-              Set-Content -Path "$targetDir/npm-cli.js" -Value ""
-          }
-      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
-        shell: msys2 {0}
-        env:
-          MSYS2_PATH_TYPE: inherit
-        run: |
-          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
+          set -euxo pipefail
+          echo "PATH=$PATH"
 
           if [ -f "/ucrt64/lib/libavcodec.a" ] && [ -f "/ucrt64/lib/libswscale.a" ]; then
-            echo "Using MSYS2 FFmpeg bundle; skipping local FFmpeg source build."
-            exit 0
+            echo "Using system FFmpeg bundle from MSYS2."
+          else
+            echo "No local FFmpeg bundle detected in /ucrt64/lib"
           fi
 
-          export PKG_CONFIG="/ucrt64/bin/pkg-config"
-          export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
-          export CC=/ucrt64/bin/gcc.exe
-          export CXX=/ucrt64/bin/g++.exe
-          export AR=/usr/bin/ar.exe
-          export RANLIB=/usr/bin/ranlib.exe
-          export MAKE=/usr/bin/make
+          echo "Checking expected build-deps folder again:"
+          find third-party/build-deps -maxdepth 3 -type d 2>/dev/null | head -200
 
-          export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
-          cd "$GITHUB_WORKSPACE_POSIX"
-
-          rm -rf third-party/build-deps/build
-          mkdir -p third-party/build-deps/build
-
-          cmake -S third-party/build-deps -B third-party/build-deps/build \
-          -G "MSYS Makefiles" \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
-          -DCMAKE_PREFIX_PATH="/ucrt64" \
-          -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
-          -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/usr/bin/ar.exe \
-          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
-          -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=2
-
-          cmake --build third-party/build-deps/build --config Release
-          cmake --install third-party/build-deps/build
-    
-      - name: Configure CMake Build
+      - name: Configure CMake
+        shell: bash
+        env:
+          PATH: /usr/bin:/bin:/ucrt64/bin:$PATH
         run: |
-          mkdir build
-          cd build
-          cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-      - name: Compile ApolloVibe (Sunshine Host)
+          set -euxo pipefail
+
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build project
+        shell: bash
+        env:
+          PATH: /usr/bin:/bin:/ucrt64/bin:$PATH
         run: |
-          cd build
-          ninja sunshine
-      - name: Package Windows Artifacts & Generate Checksums
-        shell: pwsh
-        run: |
-          $distDir = "dist/apollovibe-windows-x64"
-          if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
-          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-          
-          if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
-          if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
-          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
-          
-          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
-          Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
-          
-          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr = $hashObj.Hash.ToLower()
-          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
-          
-          Write-Host "--- Generated Checksum ---"
-          Get-Content "apollovibe-windows-x64.zip.sha256"
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: apollovibe-windows-x64-release
-          path: |
-            apollovibe-windows-x64.zip
-            apollovibe-windows-x64.zip.sha256
+          set -euxo pipefail
+          cmake --build build --parallel
