@@ -124,40 +124,8 @@ jobs:
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          
-          # Create path-translating wrappers for ar and ranlib, strip CRLF, and ensure proper execution
-          cat << 'EOF' > /tmp/ar-wrap.sh
-          #!/bin/bash
-          new_args=()
-          for arg in "$@"; do
-            if [[ "$arg" =~ ^/[a-zA-Z]/ ]]; then
-              new_args+=("$(cygpath -w "$arg")")
-            else
-              new_args+=("$arg")
-            fi
-          done
-          exec /ucrt64/bin/ar.exe "${new_args[@]}"
-          EOF
-          tr -d '\r' < /tmp/ar-wrap.sh > /tmp/ar-wrap2.sh && mv /tmp/ar-wrap2.sh /tmp/ar-wrap.sh
-          chmod +x /tmp/ar-wrap.sh
-
-          cat << 'EOF' > /tmp/ranlib-wrap.sh
-          #!/bin/bash
-          new_args=()
-          for arg in "$@"; do
-            if [[ "$arg" =~ ^/[a-zA-Z]/ ]]; then
-              new_args+=("$(cygpath -w "$arg")")
-            else
-              new_args+=("$arg")
-            fi
-          done
-          exec /ucrt64/bin/ranlib.exe "${new_args[@]}"
-          EOF
-          tr -d '\r' < /tmp/ranlib-wrap.sh > /tmp/ranlib-wrap2.sh && mv /tmp/ranlib-wrap2.sh /tmp/ranlib-wrap.sh
-          chmod +x /tmp/ranlib-wrap.sh
-
-          export AR="/tmp/ar-wrap.sh"
-          export RANLIB="/tmp/ranlib-wrap.sh"
+          unset AR
+          unset RANLIB
           export MAKE=make
           
           mkdir -p /tmp/deps-tmp
@@ -178,10 +146,8 @@ jobs:
           -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR="/tmp/ar-wrap.sh" \
-          -DCMAKE_RANLIB="/tmp/ranlib-wrap.sh" \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=1
+          -DMSYS2_OPTION=3
           
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
