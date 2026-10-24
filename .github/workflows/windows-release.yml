@@ -52,15 +52,12 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-libvpl
-
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
-
           git submodule update --init --recursive --force --verbose
-
           if [ -d "third-party/build-deps" ]; then
             cd third-party/build-deps
             git submodule update --init --recursive --force --verbose
@@ -78,7 +75,6 @@ jobs:
               git clean -fdx
             fi
           fi
-
       - name: Sanitize MSYS2 Environment Paths
         shell: pwsh
         run: |
@@ -86,7 +82,6 @@ jobs:
           $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
-
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
@@ -102,81 +97,29 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
-
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          # Create intelligent response-file and path-translating wrappers for ar and ranlib
-          mkdir -p /tmp/bin
-          
-          cat << 'EOF' > /tmp/bin/ar
-          #!/bin/bash
-          export PATH="/usr/bin:/bin:$PATH"
-          new_args=()
-          for arg in "$@"; do
-              if [[ "$arg" == @* ]]; then
-                  resp_file="${arg#@}"
-                  new_resp_file="/tmp/ar_resp_$$"
-                  while IFS= read -r line; do
-                      trans_line=""
-                      for word in $line; do
-                          if [[ "$word" == /* ]] || [[ "$word" =~ ^[a-zA-Z]: ]]; then
-                              word="$(/usr/bin/cygpath -m "$word")"
-                          fi
-                          trans_line="${trans_line:+$trans_line }$word"
-                      done
-                      echo "$trans_line" >> "$new_resp_file"
-                  done < "$resp_file"
-                  new_args+=("@$new_resp_file")
-              elif [[ "$arg" == /* ]] || [[ "$arg" =~ ^[a-zA-Z]: ]]; then
-                  new_args+=("$(/usr/bin/cygpath -m "$arg")")
-              else
-                  new_args+=("$arg")
-              fi
-          done
-          exec /ucrt64/bin/ar.exe "${new_args[@]}"
-          EOF
-
-          cat << 'EOF' > /tmp/bin/ranlib
-          #!/bin/bash
-          export PATH="/usr/bin:/bin:$PATH"
-          new_args=()
-          for arg in "$@"; do
-              if [[ "$arg" == /* ]] || [[ "$arg" =~ ^[a-zA-Z]: ]]; then
-                  new_args+=("$(/usr/bin/cygpath -m "$arg")")
-              else
-                  new_args+=("$arg")
-              fi
-          done
-          exec /ucrt64/bin/ranlib.exe "${new_args[@]}"
-          EOF
-
-          chmod +x /tmp/bin/ar /tmp/bin/ranlib
-
-          export PATH="/tmp/bin:/usr/bin:/bin:/ucrt64/bin:$PATH"
+          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
           export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          export AR=ar
-          export RANLIB=ranlib
+          export AR=/usr/bin/ar.exe
+          export RANLIB=/usr/bin/ranlib.exe
           export MAKE=/usr/bin/make
-
           mkdir -p /tmp
           export TMPDIR="/tmp"
           export TMP="/tmp"
           export TEMP="/tmp"
-
           export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
           cd "$GITHUB_WORKSPACE_POSIX"
-
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
-
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -184,25 +127,21 @@ jobs:
           -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=ar \
-          -DCMAKE_RANLIB=ranlib \
+          -DCMAKE_AR=/usr/bin/ar.exe \
+          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
-
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
-
       - name: Configure CMake Build
         run: |
           mkdir build
           cd build
           cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
           ninja sunshine
-
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
@@ -223,7 +162,6 @@ jobs:
           
           Write-Host "--- Generated Checksum ---"
           Get-Content "apollovibe-windows-x64.zip.sha256"
-
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
