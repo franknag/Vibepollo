@@ -10,10 +10,6 @@ jobs:
     name: Build ApolloVibe Custom (Windows x64)
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: bash
-
     steps:
       - name: Checkout Repository with Submodules
         uses: actions/checkout@v4
@@ -64,34 +60,32 @@ jobs:
       - name: Sanitize MSYS2 Environment Paths
         shell: pwsh
         run: |
-          $envPath = [Environment]::GetEnvironmentVariable('PATH', 'Process')
-          $cleanedPath = ($envPath -split ';' | Where-Object {
-            $_ -notmatch 'msys64\\msys64' -and $_ -notmatch 'msys64/msys64'
-          }) -join ';'
-          [Environment]::SetEnvironmentVariable('PATH', $cleanedPath, 'Process')
-          Write-Host 'Successfully sanitized PATH environment variable.'
+          $pathEntries = [System.Environment]::GetEnvironmentVariable("PATH", "Process") -split ';' |
+            Where-Object { $_ -and $_ -notmatch 'msys64\\msys64' -and $_ -notmatch 'msys64/msys64' }
+          [System.Environment]::SetEnvironmentVariable("PATH", ($pathEntries -join ';'), "Process")
+          Write-Host "Successfully sanitized PATH environment variable."
 
-      - name: Ensure npm CLI path compatibility for CMake
+      - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
-          $targetDir = 'C:/msys64/ucrt64/lib/node_modules/npm/bin'
+          $targetDir = "C:/msys64/ucrt64/lib/node_modules/npm/bin"
           if (-not (Test-Path $targetDir)) {
             New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
           }
-          $found = Get-ChildItem -Path 'C:\','D:\' -Filter 'npm-cli.js' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
             Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
             Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
-            Write-Warning 'npm-cli.js source not found yet; creating placeholder structure.'
-            Set-Content -Path "$targetDir/npm-cli.js" -Value ''
+            Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
+            Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: bash
         env:
           MSYS2_PATH_TYPE: inherit
-          PATH: /usr/bin:/bin:/ucrt64/bin:${{ env.PATH }}
+          PATH: /usr/bin:/bin:/ucrt64/bin:${PATH}
           PKG_CONFIG: /ucrt64/bin/pkg-config
           PKG_CONFIG_PATH: /ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig
           CC: /ucrt64/bin/gcc.exe
@@ -105,9 +99,11 @@ jobs:
           export TEMP="/tmp"
           export GITHUB_WORKSPACE_POSIX="$(cygpath -u "$GITHUB_WORKSPACE")"
           cd "$GITHUB_WORKSPACE_POSIX"
+
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
+
           cmake -S third-party/build-deps -B third-party/build-deps/build \
             -G "MSYS Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -119,6 +115,7 @@ jobs:
             -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
             -DBUILD_FFMPEG_SVT_AV1=OFF \
             -DMSYS2_OPTION=2
+
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
 
@@ -136,23 +133,23 @@ jobs:
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
-          $distDir = Join-Path $PWD 'dist/apollovibe-windows-x64'
-          if (Test-Path 'dist') { Remove-Item -Recurse -Force 'dist' }
+          $distDir = Join-Path $PWD "dist/apollovibe-windows-x64"
+          if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 
-          if (Test-Path 'build/sunshine.exe') { Copy-Item 'build/sunshine.exe' -Destination $distDir -Force }
-          if (Test-Path 'assets') { Copy-Item -Recurse -Force 'assets' -Destination $distDir }
-          if (Test-Path 'tools') { Copy-Item -Recurse -Force 'tools' -Destination $distDir }
+          if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination $distDir -Force }
+          if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination $distDir }
+          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination $distDir }
 
-          if (Test-Path 'apollovibe-windows-x64.zip') { Remove-Item 'apollovibe-windows-x64.zip' -Force }
-          Compress-Archive -Path $distDir -DestinationPath 'apollovibe-windows-x64.zip' -Force
+          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" -Force }
+          Compress-Archive -Path $distDir -DestinationPath "apollovibe-windows-x64.zip" -Force
 
-          $hashObj = Get-FileHash -Path 'apollovibe-windows-x64.zip' -Algorithm SHA256
+          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
           $hashStr = $hashObj.Hash.ToLower()
-          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii 'apollovibe-windows-x64.zip.sha256'
+          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
 
-          Write-Host '--- Generated Checksum ---'
-          Get-Content 'apollovibe-windows-x64.zip.sha256'
+          Write-Host "--- Generated Checksum ---"
+          Get-Content "apollovibe-windows-x64.zip.sha256"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
