@@ -50,7 +50,7 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
 
-      - name: Initialize Submodules and Fix x264 Line Endings (LizardByte Specification)
+      - name: Initialize Submodules and Fix x264 Line Endings
         shell: msys2 {0}
         run: |
           git config --global core.autocrlf false
@@ -97,6 +97,21 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
+      - name: Bridge Pacman x264 to Prevent Build-Deps Indexing Failures
+        shell: msys2 {0}
+        run: |
+          mkdir -p third-party/build-deps/build/x264/lib
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/include
+          
+          if [ -f /ucrt64/lib/libx264.a ]; then
+            cp /ucrt64/lib/libx264.a third-party/build-deps/build/x264/lib/libx264.a
+            cp /ucrt64/lib/libx264.a third-party/build-deps/dist/Windows-AMD64/lib/
+          elif [ -f /ucrt64/bin/libx264.dll.a ]; then
+            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/build/x264/lib/libx264.a
+            cp /ucrt64/bin/libx264.dll.a third-party/build-deps/dist/Windows-AMD64/lib/libx264.a
+          fi
+
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
@@ -131,7 +146,7 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=3
+          -DMSYS2_OPTION=2
 
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
