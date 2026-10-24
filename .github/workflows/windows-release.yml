@@ -108,31 +108,52 @@ jobs:
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          # Create path-translating wrappers for ar and ranlib to bridge MSYS POSIX paths to Windows paths for UCRT64 tools
+          # Create intelligent response-file and path-translating wrappers for ar and ranlib
           mkdir -p /tmp/bin
-          cat << 'EOF' > /tmp/bin/ranlib
-          #!/bin/bash
-          args=("$@")
-          for i in "${!args[@]}"; do
-              if [[ "${args[$i]}" == /* ]]; then
-                  args[$i]="$(cygpath -m "${args[$i]}")"
-              fi
-          done
-          exec /ucrt64/bin/ranlib.exe "${args[@]}"
-          EOF
-
+          
           cat << 'EOF' > /tmp/bin/ar
           #!/bin/bash
-          args=("$@")
-          for i in "${!args[@]}"; do
-              if [[ "${args[$i]}" == /* ]]; then
-                  args[$i]="$(cygpath -m "${args[$i]}")"
+          export PATH="/usr/bin:/bin:$PATH"
+          new_args=()
+          for arg in "$@"; do
+              if [[ "$arg" == @* ]]; then
+                  resp_file="${arg#@}"
+                  new_resp_file="/tmp/ar_resp_$$"
+                  while IFS= read -r line; do
+                      trans_line=""
+                      for word in $line; do
+                          if [[ "$word" == /* ]] || [[ "$word" =~ ^[a-zA-Z]: ]]; then
+                              word="$(/usr/bin/cygpath -m "$word")"
+                          fi
+                          trans_line="${trans_line:+$trans_line }$word"
+                      done
+                      echo "$trans_line" >> "$new_resp_file"
+                  done < "$resp_file"
+                  new_args+=("@$new_resp_file")
+              elif [[ "$arg" == /* ]] || [[ "$arg" =~ ^[a-zA-Z]: ]]; then
+                  new_args+=("$(/usr/bin/cygpath -m "$arg")")
+              else
+                  new_args+=("$arg")
               fi
           done
-          exec /ucrt64/bin/ar.exe "${args[@]}"
+          exec /ucrt64/bin/ar.exe "${new_args[@]}"
           EOF
 
-          chmod +x /tmp/bin/ranlib /tmp/bin/ar
+          cat << 'EOF' > /tmp/bin/ranlib
+          #!/bin/bash
+          export PATH="/usr/bin:/bin:$PATH"
+          new_args=()
+          for arg in "$@"; do
+              if [[ "$arg" == /* ]] || [[ "$arg" =~ ^[a-zA-Z]: ]]; then
+                  new_args+=("$(/usr/bin/cygpath -m "$arg")")
+              else
+                  new_args+=("$arg")
+              fi
+          done
+          exec /ucrt64/bin/ranlib.exe "${new_args[@]}"
+          EOF
+
+          chmod +x /tmp/bin/ar /tmp/bin/ranlib
 
           export PATH="/tmp/bin:/usr/bin:/bin:/ucrt64/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
@@ -144,6 +165,7 @@ jobs:
           export RANLIB=ranlib
           export MAKE=/usr/bin/make
 
+          mkdir -p /tmp
           export TMPDIR="/tmp"
           export TMP="/tmp"
           export TEMP="/tmp"
