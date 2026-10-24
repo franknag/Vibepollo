@@ -97,42 +97,55 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
-
-      - name: Fix Windows System32 Bash WSL Stub Conflict
-        shell: pwsh
-        run: |
-          $target = "C:\Windows\System32\bash.exe"
-          $source = "C:\msys64\usr\bin\bash.exe"
-          if (Test-Path $source) {
-              Write-Host "Replacing WSL bash.exe stub with MSYS2 bash..."
-              takeown /f $target
-              icacls $target /grant "Administrators:F"
-              Remove-Item -Force $target -ErrorAction SilentlyContinue
-              Copy-Item -Path $source -Destination $target -Force
-              Write-Host "Successfully replaced System32 bash.exe"
-          } else {
-              Write-Warning "MSYS2 bash.exe not found at $source"
-          }
-
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
+          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
           export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          export AR=/ucrt64/bin/ar.exe
-          export RANLIB=/ucrt64/bin/ranlib.exe
-          export MAKE=make
           
-          mkdir -p /tmp/deps-tmp
-          export TMPDIR="/tmp/deps-tmp"
-          export TMP="/tmp/deps-tmp"
-          export TEMP="/tmp/deps-tmp"
+          # Create path-translating wrappers for ar and ranlib to handle native Windows toolchain paths correctly
+          cat << 'EOF' > /tmp/ar-wrap.sh
+          #!/bin/bash
+          new_args=()
+          for arg in "$@"; do
+            if [[ "$arg" =~ ^/[a-zA-Z]/ ]]; then
+              new_args+=("$(cygpath -w "$arg")")
+            else
+              new_args+=("$arg")
+            fi
+          done
+          exec /ucrt64/bin/ar.exe "${new_args[@]}"
+          EOF
+          chmod +x /tmp/ar-wrap.sh
+
+          cat << 'EOF' > /tmp/ranlib-wrap.sh
+          #!/bin/bash
+          new_args=()
+          for arg in "$@"; do
+            if [[ "$arg" =~ ^/[a-zA-Z]/ ]]; then
+              new_args+=("$(cygpath -w "$arg")")
+            else
+              new_args+=("$arg")
+            fi
+          done
+          exec /ucrt64/bin/ranlib.exe "${new_args[@]}"
+          EOF
+          chmod +x /tmp/ranlib-wrap.sh
+
+          export AR="/tmp/ar-wrap.sh"
+          export RANLIB="/tmp/ranlib-wrap.sh"
+          export MAKE=/usr/bin/make
+          
+          mkdir -p /tmp
+          export TMPDIR="/tmp"
+          export TMP="/tmp"
+          export TEMP="/tmp"
           export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
           
           cd "$GITHUB_WORKSPACE_POSIX"
@@ -147,14 +160,13 @@ jobs:
           -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/ucrt64/bin/ar.exe \
-          -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
+          -DCMAKE_AR="/tmp/ar-wrap.sh" \
+          -DCMAKE_RANLIB="/tmp/ranlib-wrap.sh" \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DMSYS2_OPTION=3
+          -DMSYS2_OPTION=1
           
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
-
       - name: Configure CMake Build
         run: |
           mkdir build
