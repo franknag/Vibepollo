@@ -97,29 +97,36 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
+
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
         run: |
-          export PATH="/usr/bin:/bin:/ucrt64/bin:$PATH"
+          # Ensure UCRT64 bin is first in PATH so native tools are preferred
+          export PATH="/ucrt64/bin:/usr/bin:/bin:$PATH"
           export PKG_CONFIG="/ucrt64/bin/pkg-config"
           export PKG_CONFIG_PATH="$(cygpath -u /ucrt64/lib/pkgconfig):$(cygpath -u /ucrt64/share/pkgconfig)"
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          export AR=/usr/bin/ar.exe
-          export RANLIB=/usr/bin/ranlib.exe
-          export MAKE=/usr/bin/make
+          
+          # Let the toolchain resolve AR/RANLIB automatically instead of forcing /usr/bin mismatches
+          unset AR
+          unset RANLIB
+          
+          export MAKE=make
           mkdir -p /tmp
           export TMPDIR="/tmp"
           export TMP="/tmp"
           export TEMP="/tmp"
           export GITHUB_WORKSPACE_POSIX=$(cygpath -u "$GITHUB_WORKSPACE")
+          
           cd "$GITHUB_WORKSPACE_POSIX"
           rm -rf third-party/build-deps/build
           mkdir -p third-party/build-deps/build
           mkdir -p third-party/build-deps/dist/Windows-AMD64
+          
           cmake -S third-party/build-deps -B third-party/build-deps/build \
           -G "MSYS Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
@@ -127,12 +134,12 @@ jobs:
           -DCMAKE_PREFIX_PATH="/ucrt64" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/usr/bin/ar.exe \
-          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
+          
           cmake --build third-party/build-deps/build --config Release
           cmake --install third-party/build-deps/build
+
       - name: Configure CMake Build
         run: |
           mkdir build
