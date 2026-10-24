@@ -33,6 +33,7 @@ jobs:
             base-devel
             pkg-config
             mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
             mingw-w64-ucrt-x86_64-x264
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-make
@@ -124,7 +125,7 @@ jobs:
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
           
-          # Create path-translating wrappers for ar and ranlib to handle native Windows toolchain paths correctly
+          # Create path-translating wrappers for ar and ranlib, and strip Windows CRLF line endings
           cat << 'EOF' > /tmp/ar-wrap.sh
           #!/bin/bash
           new_args=()
@@ -137,6 +138,7 @@ jobs:
           done
           exec /ucrt64/bin/ar.exe "${new_args[@]}"
           EOF
+          tr -d '\r' < /tmp/ar-wrap.sh > /tmp/ar-wrap2.sh && mv /tmp/ar-wrap2.sh /tmp/ar-wrap.sh
           chmod +x /tmp/ar-wrap.sh
 
           cat << 'EOF' > /tmp/ranlib-wrap.sh
@@ -151,6 +153,7 @@ jobs:
           done
           exec /ucrt64/bin/ranlib.exe "${new_args[@]}"
           EOF
+          tr -d '\r' < /tmp/ranlib-wrap.sh > /tmp/ranlib-wrap2.sh && mv /tmp/ranlib-wrap2.sh /tmp/ranlib-wrap.sh
           chmod +x /tmp/ranlib-wrap.sh
 
           export AR="/tmp/ar-wrap.sh"
