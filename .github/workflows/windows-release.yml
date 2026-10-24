@@ -51,6 +51,7 @@ jobs:
             mingw-w64-ucrt-x86_64-nodejs
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
+            mingw-w64-ucrt-x86_64-libvpl
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
@@ -111,8 +112,8 @@ jobs:
           
           export CC=/ucrt64/bin/gcc.exe
           export CXX=/ucrt64/bin/g++.exe
-          export AR=/ucrt64/bin/ar.exe
-          export RANLIB=/ucrt64/bin/ranlib.exe
+          export AR=/usr/bin/ar.exe
+          export RANLIB=/usr/bin/ranlib.exe
           export MAKE=/usr/bin/make
 
           mkdir -p /tmp
@@ -133,10 +134,9 @@ jobs:
           -DCMAKE_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/dist/Windows-AMD64")" \
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
-          -DCMAKE_AR=/ucrt64/bin/ar.exe \
-          -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
+          -DCMAKE_AR=/usr/bin/ar.exe \
+          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=OFF \
-          -DBUILD_FFMPEG_X264=OFF \
           -DMSYS2_OPTION=2
 
           cmake --build third-party/build-deps/build --config Release
