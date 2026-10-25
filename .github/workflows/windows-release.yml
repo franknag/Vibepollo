@@ -181,6 +181,13 @@ jobs:
             done
           done
 
+          # FIX: Mirror libavutil inside libavcodec/libavutil so that quote-based includes like #include "libavutil/x86/asm.h" resolve correctly
+          if [ -d "third-party/build-deps/dist/Windows-AMD64/include/libavutil" ]; then
+            mkdir -p "third-party/build-deps/dist/Windows-AMD64/include/libavcodec/libavutil"
+            cp -rf third-party/build-deps/dist/Windows-AMD64/include/libavutil/* third-party/build-deps/dist/Windows-AMD64/include/libavcodec/libavutil/
+            echo "Successfully mirrored libavutil headers into libavcodec include path."
+          fi
+
       - name: Configure CMake Build
         shell: msys2 {0}
         run: |
@@ -216,7 +223,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: apollovibe-windows-x64-release
+          name: apollovibe-windows-x64
           path: |
             apollovibe-windows-x64.zip
             apollovibe-windows-x64.zip.sha256
