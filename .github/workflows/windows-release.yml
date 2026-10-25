@@ -54,6 +54,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libvpl
             mingw-w64-ucrt-x86_64-svt-av1
             mingw-w64-ucrt-x86_64-amf-headers
+            mingw-w64-ucrt-x86_64-python
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
@@ -148,45 +149,56 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Recursive & Structure-Preserving Header Sync: Copy all nested internal headers (like x86/asm.h) into isolated subdirectories
-          echo "Safely syncing nested internal and generated FFmpeg headers..."
-          for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
-            target_dir="third-party/build-deps/dist/Windows-AMD64/include/$lib"
-            mkdir -p "$target_dir"
-            
-            # Recursively copy all .h files from source tree preserving directory structure (e.g. x86/)
-            find . -type d -name "$lib" | grep -v "dist" | while read -r src_dir; do
-              if [ -d "$src_dir" ]; then
-                cd "$src_dir"
-                find . -name "*.h" -exec cp --parents -f {} "$(cygpath -u "$GITHUB_WORKSPACE/$target_dir")/" 2>/dev/null || true
-                cd - > /dev/null
-              fi
-            done
-            
-            # Copy generated headers from build tree matching this lib
-            find third-party/build-deps/build -name "*.h" | while read -r h_file; do
-              if [[ "$h_file" == *"/$lib/"* ]]; then
-                cp -f "$h_file" "$target_dir/" 2>/dev/null || true
-              fi
-            done
-          done
+          # Robust Python-based header sync, generation inclusion, and mirroring (fixes x86/asm.h lookup issues)
+          python3 -c "
+          import os, shutil
 
-          # Ensure generated config.h and avconfig.h are present locally inside each library include subfolder
-          find third-party/build-deps/build -name "config.h" -o -name "avconfig.h" | while read -r cfg_file; do
-            for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
-              target_dir="third-party/build-deps/dist/Windows-AMD64/include/$lib"
-              if [ -d "$target_dir" ]; then
-                cp -f "$cfg_file" "$target_dir/" 2>/dev/null || true
-              fi
-            done
-          done
+          workspace = os.environ.get('GITHUB_WORKSPACE', '.')
+          dist_inc = os.path.join(workspace, 'third-party', 'build-deps', 'dist', 'Windows-AMD64', 'include')
+          ffmpeg_src = os.path.join(workspace, 'third-party', 'build-deps', 'third-party', 'FFmpeg')
+          build_dir = os.path.join(workspace, 'third-party', 'build-deps', 'build')
 
-          # FIX: Mirror libavutil inside libavcodec/libavutil so that quote-based includes like #include "libavutil/x86/asm.h" resolve correctly
-          if [ -d "third-party/build-deps/dist/Windows-AMD64/include/libavutil" ]; then
-            mkdir -p "third-party/build-deps/dist/Windows-AMD64/include/libavcodec/libavutil"
-            cp -rf third-party/build-deps/dist/Windows-AMD64/include/libavutil/* third-party/build-deps/dist/Windows-AMD64/include/libavcodec/libavutil/
-            echo "Successfully mirrored libavutil headers into libavcodec include path."
-          fi
+          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
+
+          print('Syncing FFmpeg source headers recursively...')
+          for lib in libs:
+              src = os.path.join(ffmpeg_src, lib)
+              dst = os.path.join(dist_inc, lib)
+              if os.path.isdir(src):
+                  os.makedirs(dst, exist_ok=True)
+                  for root, dirs, files in os.walk(src):
+                      rel = os.path.relpath(root, src)
+                      target_subdir = os.path.join(dst, rel)
+                      os.makedirs(target_subdir, exist_ok=True)
+                      for f in files:
+                          if f.endswith('.h'):
+                              shutil.copy2(os.path.join(root, f), os.path.join(target_subdir, f))
+
+          print('Copying generated headers from build tree...')
+          if os.path.isdir(build_dir):
+              for root, dirs, files in os.walk(build_dir):
+                  for f in files:
+                      if f.endswith('.h'):
+                          for lib in libs:
+                              if f'/{lib}/' in root.replace('\\', '/') or root.endswith(lib):
+                                  dst_lib = os.path.join(dist_inc, lib)
+                                  os.makedirs(dst_lib, exist_ok=True)
+                                  shutil.copy2(os.path.join(root, f), os.path.join(dst_lib, f))
+
+          print('Mirroring libavutil inside libavcodec for quote-based include resolution...')
+          avutil_dist = os.path.join(dist_inc, 'libavutil')
+          avcodec_avutil_dist = os.path.join(dist_inc, 'libavcodec', 'libavutil')
+          if os.path.isdir(avutil_dist):
+              os.makedirs(avcodec_avutil_dist, exist_ok=True)
+              for root, dirs, files in os.walk(avutil_dist):
+                  rel = os.path.relpath(root, avutil_dist)
+                  target_subdir = os.path.join(avcodec_avutil_dist, rel)
+                  os.makedirs(target_subdir, exist_ok=True)
+                  for f in files:
+                      if f.endswith('.h'):
+                          shutil.copy2(os.path.join(root, f), os.path.join(target_subdir, f))
+              print('Successfully mirrored libavutil headers into libavcodec/libavutil.')
+          "
 
       - name: Configure CMake Build
         shell: msys2 {0}
