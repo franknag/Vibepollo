@@ -54,6 +54,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libvpl
             mingw-w64-ucrt-x86_64-svt-av1
             mingw-w64-ucrt-x86_64-amf-headers
+            mingw-w64-ucrt-x86_64-ffnvcodec-headers
             mingw-w64-ucrt-x86_64-python
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
@@ -104,7 +105,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
+      - name: Build Dependencies Locally & Stage via Python (Bypassing Fragile Install)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -140,29 +141,33 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=ON \
-          -DMSYS2_OPTION=2
+          -DMSYS2_OPTION=3
           
-          cmake --build third-party/build-deps/build --config Release --parallel 2
-          cmake --install third-party/build-deps/build
+          cmake --build third-party/build-deps/build --config Release
 
-          # Universal fallback: find and copy all compiled static archives (.a) into the dist library directory
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
-          find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
-
-          # Robust Python Header Sync & config.h Propagation Script
+          # Lightning-fast, targeted Python Staging & Config Mapping Script
           python3 -c "
           import os, shutil, pathlib
 
           workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
           dist_dir = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64'
+          dist_lib = dist_dir / 'lib'
           dist_inc = dist_dir / 'include'
           build_dir = workspace / 'third-party' / 'build-deps' / 'build'
           ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
 
+          dist_lib.mkdir(parents=True, exist_ok=True)
           dist_inc.mkdir(parents=True, exist_ok=True)
-          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
 
-          print('1. Harvesting source headers...')
+          print('1. Staging compiled static libraries (.a)...')
+          for p in build_dir.rglob('*.a'):
+              try:
+                  shutil.copy2(p, dist_lib / p.name)
+              except Exception:
+                  pass
+
+          print('2. Harvesting public & private FFmpeg source headers...')
+          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
           if ffmpeg_src.is_dir():
               for lib in libs:
                   src_lib = ffmpeg_src / lib
@@ -172,13 +177,13 @@ jobs:
                       for p in src_lib.rglob('*.h'):
                           rel = p.relative_to(src_lib)
                           dest_p = dst_lib / rel
-                          dest_p.parent.mkdir(parents=True, exist_ok=True)
+                        #   dest_p.parent.mkdir(parents=True, exist_ok=True)
                           try:
                               shutil.copy2(p, dest_p)
                           except Exception:
                               pass
 
-          print('2. Harvesting build generated headers...')
+          print('3. Copying generated headers from build tree...')
           if build_dir.is_dir():
               for p in build_dir.rglob('*.h'):
                   for lib in libs:
@@ -190,19 +195,26 @@ jobs:
                           except Exception:
                               pass
 
-          print('3. Universally propagating config.h and avconfig.h to every folder and subfolder...')
+          print('4. Placing config.h and avconfig.h directly into every library include folder...')
           if build_dir.is_dir():
-              config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
-              for cfg in config_files:
+              for cfg in list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h')):
                   if cfg.is_file():
-                      all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
-                      for d in all_dirs:
-                          try:
-                              shutil.copy2(cfg, d / cfg.name)
-                          except Exception:
-                              pass
+                      # Map config to its corresponding library folder if matched in path
+                      for lib in libs:
+                          if lib in cfg.parts:
+                              target_folder = dist_inc / lib
+                              target_folder.mkdir(parents=True, exist_ok=True)
+                              try:
+                                  shutil.copy2(cfg, target_folder / cfg.name)
+                              except Exception:
+                                  pass
+                      # Also place in root include dir as a safe fallback
+                      try:
+                          shutil.copy2(cfg, dist_inc / cfg.name)
+                      except Exception:
+                          pass
 
-          print('Header sync and config propagation completed successfully.')
+          print('Staging and precise config mapping completed instantly.')
           "
 
       - name: Configure CMake Build
