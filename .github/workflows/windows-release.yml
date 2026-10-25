@@ -84,7 +84,7 @@ jobs:
         shell: pwsh
         run: |
           $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          $cleanedPath =$envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
 
@@ -97,7 +97,7 @@ jobs:
           }
           $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
+              Write-Host "Copying npm-cli.js from $($found.FullName) to$targetDir"
               Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
@@ -149,7 +149,7 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Lightning-fast, precise Python script harvesting source headers (asm.h, mathops.h, cbs_h264.h) and config.h
+          # Ultra-fast, comprehensive Python synchronization script with universal recursive mirroring
           python3 -c "
           import os, shutil, pathlib
 
@@ -161,7 +161,7 @@ jobs:
           libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
           dist_inc.mkdir(parents=True, exist_ok=True)
 
-          print('1. Harvesting ALL public and private source headers from FFmpeg source tree...')
+          print('1. Harvesting ALL source headers from FFmpeg source tree...')
           if ffmpeg_src.is_dir():
               for lib in libs:
                   src_lib = ffmpeg_src / lib
@@ -189,13 +189,12 @@ jobs:
                           except Exception:
                               pass
 
-          print('3. Deep-mirroring libavutil inside libavcodec and subfolders for asm.h / mathops.h resolution...')
+          print('3. Universally mirroring libavutil into EVERY directory and subfolder (fixing nested x86/asm.h lookups)...')
           avutil_dir = dist_inc / 'libavutil'
-          libavcodec_dir = dist_inc / 'libavcodec'
-          if avutil_dir.is_dir() and libavcodec_dir.is_dir():
-              target_dirs = [libavcodec_dir] + [d for d in libavcodec_dir.rglob('*') if d.is_dir()]
-              for td in target_dirs:
-                  avutil_target = td / 'libavutil'
+          if avutil_dir.is_dir():
+              all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
+              for d in all_dirs:
+                  avutil_target = d / 'libavutil'
                   avutil_target.mkdir(parents=True, exist_ok=True)
                   for p in avutil_dir.rglob('*.h'):
                       rel = p.relative_to(avutil_dir)
@@ -211,17 +210,15 @@ jobs:
           if build_dir.is_dir():
               for cfg_file in list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h')):
                   if cfg_file.is_file():
-                      for lib_dir in dist_inc.iterdir():
-                          if lib_dir.is_dir():
-                              for sub in [lib_dir] + [d for d in lib_dir.rglob('*') if d.is_dir()]:
-                                  target_cfg = sub / cfg_file.name
-                                  if cfg_file.resolve() != target_cfg.resolve():
-                                      try:
-                                          shutil.copy2(cfg_file, target_cfg)
-                                      except Exception:
-                                          pass
+                      for d in [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]:
+                          target_cfg = d / cfg_file.name
+                          if cfg_file.resolve() != target_cfg.resolve():
+                              try:
+                                  shutil.copy2(cfg_file, target_cfg)
+                              except Exception:
+                                  pass
 
-          print('Source header harvesting and configuration propagation completed instantly.')
+          print('Universal header synchronization and deep recursive mirroring completed successfully.')
           "
 
       - name: Configure CMake Build
@@ -244,22 +241,4 @@ jobs:
           
           if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
           if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
-          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
-          
-          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
-          Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
-          
-          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr = $hashObj.Hash.ToLower()
-          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
-          
-          Write-Host "--- Generated Checksum ---"
-          Get-Content "apollovibe-windows-x64.zip.sha256"
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: apollovibe-windows-x64
-          path: |
-            apollovibe-windows-x64.zip
-            apollovibe-windows-x64.zip.sha256
+          if (
