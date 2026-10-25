@@ -54,6 +54,7 @@ jobs:
             mingw-w64-ucrt-x86_64-libvpl
             mingw-w64-ucrt-x86_64-svt-av1
             mingw-w64-ucrt-x86_64-amf-headers
+            mingw-w64-ucrt-x86_64-ffnvcodec-headers
             mingw-w64-ucrt-x86_64-python
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
@@ -104,7 +105,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally & Stage via Python (Bypassing Fragile Install & Freezes)
+      - name: Build Dependencies Locally & Stage via Python (Bypassing Fragile Install)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -144,7 +145,7 @@ jobs:
           
           cmake --build third-party/build-deps/build --config Release
 
-          # Robust Python Staging & Header Sync Script
+          # Comprehensive Python Staging & Header Sync Script
           python3 -c "
           import os, shutil, pathlib
 
@@ -194,17 +195,28 @@ jobs:
                           except Exception:
                               pass
 
-          print('4. Universal propagation of config.h and avconfig.h everywhere...')
+          print('4. Deep-mirroring libavutil everywhere (fixing asm.h lookups)...')
+          avutil_dir = dist_inc / 'libavutil'
+          if avutil_dir.is_dir():
+              all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
+              for d in all_dirs:
+                  avutil_target = d / 'libavutil'
+                  avutil_target.mkdir(parents=True, exist_ok=True)
+                  for p in avutil_dir.rglob('*.h'):
+                      rel = p.relative_to(avutil_dir)
+                      dest_p = avutil_target / rel
+                      dest_p.parent.mkdir(parents=True, exist_ok=True)
+                      if p.resolve() != dest_p.resolve():
+                          try:
+                              shutil.copy2(p, dest_p)
+                          except Exception:
+                              pass
+
+          print('5. Universal propagation of config.h and avconfig.h everywhere...')
           if build_dir.is_dir():
               config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
               for cfg in config_files:
                   if cfg.is_file():
-                      # Copy to root include dir
-                      try:
-                          shutil.copy2(cfg, dist_inc / cfg.name)
-                      except Exception:
-                          pass
-                      # Copy to every library and subfolder
                       for d in [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]:
                           target_cfg = d / cfg.name
                           try:
