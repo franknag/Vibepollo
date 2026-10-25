@@ -148,7 +148,7 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Safe & Isolated Header Sync: Copy internal/generated headers ONLY into their specific subdirectories under include/
+          # Safe & Isolated Header Sync: Copy internal headers into isolated subdirectories under include/
           echo "Safely syncing internal and generated FFmpeg headers into isolated subdirectories..."
           for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
             target_dir="third-party/build-deps/dist/Windows-AMD64/include/$lib"
@@ -159,10 +159,20 @@ jobs:
               cp -f "$src_dir"/*.h "$target_dir/" 2>/dev/null || true
             done
             
-            # Copy generated config/internal headers from build tree
+            # Copy generated headers from build tree
             find third-party/build-deps/build -name "*.h" | while read -r h_file; do
               if [[ "$h_file" == *"/$lib/"* ]]; then
                 cp -f "$h_file" "$target_dir/" 2>/dev/null || true
+              fi
+            done
+          done
+
+          # Ensure generated config.h and avconfig.h are present locally inside each library include subfolder
+          find third-party/build-deps/build -name "config.h" -o -name "avconfig.h" | while read -r cfg_file; do
+            for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
+              target_dir="third-party/build-deps/dist/Windows-AMD64/include/$lib"
+              if [ -d "$target_dir" ]; then
+                cp -f "$cfg_file" "$target_dir/" 2>/dev/null || true
               fi
             done
           done
