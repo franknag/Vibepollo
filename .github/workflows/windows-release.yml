@@ -104,7 +104,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally & Stage Files (Bypassing Fragile Install)
+      - name: Build Dependencies Locally & Stage Files (Sequential to Prevent Freezing)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -142,12 +142,10 @@ jobs:
           -DBUILD_FFMPEG_SVT_AV1=ON \
           -DMSYS2_OPTION=2
           
-          # Build dependencies completely (compiles all static libraries and objects)
-          cmake --build third-party/build-deps/build --config Release --parallel 2
+          # NOTE: Removed --parallel to prevent MSYS2 pipe deadlocks/freezing at 100% target completion
+          cmake --build third-party/build-deps/build --config Release
 
-          # NOTE: We intentionally skip 'cmake --install' here to prevent the MSYS2 pkg-config freeze!
-          # Instead, we run a robust Python script below to manually stage everything cleanly and instantly.
-
+          # Robust Python staging script (bypasses install freeze and handles all header mirroring)
           python3 -c "
           import os, shutil, pathlib
 
@@ -161,14 +159,14 @@ jobs:
           dist_lib.mkdir(parents=True, exist_ok=True)
           dist_inc.mkdir(parents=True, exist_ok=True)
 
-          print('1. Staging all compiled static libraries (.a)...')
+          print('1. Staging compiled static libraries (.a)...')
           for p in build_dir.rglob('*.a'):
               try:
                   shutil.copy2(p, dist_lib / p.name)
               except Exception:
                   pass
 
-          print('2. Harvesting all public & private FFmpeg source headers (including cbs_h264.h)...')
+          print('2. Harvesting public & private FFmpeg source headers (cbs_h264.h, mathops.h, etc.)...')
           libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
           if ffmpeg_src.is_dir():
               for lib in libs:
@@ -185,7 +183,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('3. Copying generated headers (config.h, etc.) from build tree...')
+          print('3. Copying generated headers from build tree...')
           if build_dir.is_dir():
               for p in build_dir.rglob('*.h'):
                   for lib in libs:
@@ -197,7 +195,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('4. Universally deep-mirroring libavutil into every directory/subfolder (fixing asm.h lookups)...')
+          print('4. Deep-mirroring libavutil everywhere (fixing asm.h lookups)...')
           avutil_dir = dist_inc / 'libavutil'
           if avutil_dir.is_dir():
               all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
@@ -224,9 +222,9 @@ jobs:
                               try:
                                   shutil.copy2(cfg_file, target_cfg)
                               except Exception:
-                                  pass
+                              pass
 
-          print('Staging and header synchronization completed successfully without installation freezes.')
+          print('Staging and header synchronization completed successfully without freezes.')
           "
 
       - name: Configure CMake Build
