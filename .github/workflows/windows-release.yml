@@ -53,6 +53,7 @@ jobs:
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-libvpl
             mingw-w64-ucrt-x86_64-svt-av1
+            mingw-w64-ucrt-x86_64-amf-headers
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
