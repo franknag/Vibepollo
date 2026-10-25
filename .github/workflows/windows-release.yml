@@ -151,7 +151,11 @@ jobs:
       - name: Configure CMake Build
         shell: msys2 {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          # Point directly to the core FFmpeg submodule source directory for internal bitstream headers (cbs_h264.h)
+          FFMPEG_SRC_DIR=$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/third-party/FFmpeg")
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_FLAGS="-I$FFMPEG_SRC_DIR" \
+          -DCMAKE_C_FLAGS="-I$FFMPEG_SRC_DIR"
 
       - name: Compile ApolloVibe (Sunshine Host)
         shell: msys2 {0}
