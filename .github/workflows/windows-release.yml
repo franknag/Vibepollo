@@ -54,7 +54,6 @@ jobs:
             mingw-w64-ucrt-x86_64-libvpl
             mingw-w64-ucrt-x86_64-svt-av1
             mingw-w64-ucrt-x86_64-amf-headers
-            mingw-w64-ucrt-x86_64-python
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
@@ -104,7 +103,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally & Stage Files (Using MSYS2_OPTION=3 to Prevent Freezing)
+      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -140,92 +139,46 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=ON \
-          -DMSYS2_OPTION=3
+          -DMSYS2_OPTION=2
           
-          # Build dependencies safely with option 3 preventing process handle locks
-          cmake --build third-party/build-deps/build --config Release
+          cmake --build third-party/build-deps/build --config Release --parallel 2
+          cmake --install third-party/build-deps/build
 
-          # Comprehensive Python staging and header synchronization script
-          python3 -c "
-          import os, shutil, pathlib
+          # Universal fallback: find and copy all compiled static archives (.a) into the dist library directory
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
+          find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
-          dist_dir = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64'
-          dist_lib = dist_dir / 'lib'
-          dist_inc = dist_dir / 'include'
-          build_dir = workspace / 'third-party' / 'build-deps' / 'build'
-          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
+          # Comprehensive Header Sync: Copy all internal and generated headers from source & build trees into dist/include
+          echo "Syncing all internal and generated FFmpeg headers..."
+          find . -type d \( -name "libavutil" -o -name "libavcodec" -o -name "libavformat" -o -name "libswscale" -o -name "libswresample" -o -name "libavdevice" -o -name "libavfilter" \) | grep -v "dist" | while read -r src_dir; do
+            sub_name=$(basename "$src_dir")
+            target_dir="third-party/build-deps/dist/Windows-AMD64/include/$sub_name"
+            mkdir -p "$target_dir"
+            cp -f "$src_dir"/*.h "$target_dir/" 2>/dev/null || true
+          done
 
-          dist_lib.mkdir(parents=True, exist_ok=True)
-          dist_inc.mkdir(parents=True, exist_ok=True)
+          find third-party/build-deps/build -name "*.h" | while read -r build_header; do
+            parent_dir=$(basename "$(dirname "$build_header")")
+            if [[ "$parent_dir" =~ ^libav ]] || [[ "$parent_dir" =~ ^libsw ]]; then
+              target_dir="third-party/build-deps/dist/Windows-AMD64/include/$parent_dir"
+              mkdir -p "$target_dir"
+              cp -f "$build_header" "$target_dir/" 2>/dev/null || true
+            fi
+          done
 
-          print('1. Staging compiled static libraries (.a)...')
-          for p in build_dir.rglob('*.a'):
-              try:
-                  shutil.copy2(p, dist_lib / p.name)
-              except Exception:
-                  pass
+          # FIX: Universally propagate config.h and avconfig.h into every include directory and subfolder
+          echo "Propagating config.h and avconfig.h everywhere..."
+          find third-party/build-deps/build -name "config.h" -o -name "avconfig.h" | while read -r cfg_file; do
+            find third-party/build-deps/dist/Windows-AMD64/include -type d | while read -r sub_dir; do
+              cp -f "$cfg_file" "$sub_dir/" 2>/dev/null || true
+            done
+          done
 
-          print('2. Harvesting public & private FFmpeg source headers (cbs_h264.h, mathops.h, etc.)...')
-          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
-          if ffmpeg_src.is_dir():
-              for lib in libs:
-                  src_lib = ffmpeg_src / lib
-                  dst_lib = dist_inc / lib
-                  if src_lib.is_dir():
-                      dst_lib.mkdir(parents=True, exist_ok=True)
-                      for p in src_lib.rglob('*.h'):
-                          rel = p.relative_to(src_lib)
-                          dest_p = dst_lib / rel
-                          dest_p.parent.mkdir(parents=True, exist_ok=True)
-                          try:
-                              shutil.copy2(p, dest_p)
-                          except Exception:
-                              pass
-
-          print('3. Copying generated headers from build tree...')
-          if build_dir.is_dir():
-              for p in build_dir.rglob('*.h'):
-                  for lib in libs:
-                      if lib in p.parts:
-                          dst_lib = dist_inc / lib
-                          dst_lib.mkdir(parents=True, exist_ok=True)
-                          try:
-                              shutil.copy2(p, dst_lib / p.name)
-                          except Exception:
-                              pass
-
-          print('4. Deep-mirroring libavutil everywhere (fixing asm.h lookups)...')
-          avutil_dir = dist_inc / 'libavutil'
-          if avutil_dir.is_dir():
-              all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
-              for d in all_dirs:
-                  avutil_target = d / 'libavutil'
-                  avutil_target.mkdir(parents=True, exist_ok=True)
-                  for p in avutil_dir.rglob('*.h'):
-                      rel = p.relative_to(avutil_dir)
-                      dest_p = avutil_target / rel
-                      dest_p.parent.mkdir(parents=True, exist_ok=True)
-                      if p.resolve() != dest_p.resolve():
-                          try:
-                              shutil.copy2(p, dest_p)
-                          except Exception:
-                              pass
-
-          print('5. Universally propagating config.h and avconfig.h everywhere...')
-          if build_dir.is_dir():
-              for cfg_file in list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h')):
-                  if cfg_file.is_file():
-                      for d in [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]:
-                          target_cfg = d / cfg_file.name
-                          if cfg_file.resolve() != target_cfg.resolve():
-                              try:
-                                  shutil.copy2(cfg_file, target_cfg)
-                              except Exception:
-                                  pass
-
-          print('Staging and header synchronization completed successfully without freezes.')
-          "
+          # FIX: Mirror libavutil inside libavcodec for quote-based include resolution (#include "libavutil/...")
+          if [ -d "third-party/build-deps/dist/Windows-AMD64/include/libavutil" ]; then
+            mkdir -p "third-party/build-deps/dist/Windows-AMD64/include/libavcodec/libavutil"
+            cp -rf third-party/build-deps/dist/Windows-AMD64/include/libavutil/* third-party/build-deps/dist/Windows-AMD64/include/libavcodec/libavutil/ 2>/dev/null || true
+          fi
 
       - name: Configure CMake Build
         shell: msys2 {0}
@@ -262,7 +215,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: apollovibe-windows-x64
+          name: apollovibe-windows-x64-release
           path: |
             apollovibe-windows-x64.zip
             apollovibe-windows-x64.zip.sha256
