@@ -148,38 +148,18 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
+          # Copy internal FFmpeg headers (like cbs_h264.h) directly into the include folder so system includes resolve them
+          FFMPEG_SRC_SUBDIR=$(find third-party/build-deps -type d -name "libavcodec" | grep -v "dist" | head -n 1)
+          if [ -n "$FFMPEG_SRC_SUBDIR" ]; then
+            echo "Copying internal libavcodec headers from $FFMPEG_SRC_SUBDIR"
+            mkdir -p third-party/build-deps/dist/Windows-AMD64/include/libavcodec
+            cp -f "$FFMPEG_SRC_SUBDIR"/*.h third-party/build-deps/dist/Windows-AMD64/include/libavcodec/ || true
+          fi
+
       - name: Configure CMake Build
         shell: msys2 {0}
         run: |
-          # Dynamically locate FFmpeg internal source directory containing cbs_h264.h
-          CBS_H264_PATH=$(find third-party/build-deps/build -name "cbs_h264.h" | head -n 1)
-          if [ -n "$CBS_H264_PATH" ]; then
-            FFMPEG_SRC_DIR=$(cygpath -m "$(dirname "$(dirname "$CBS_H264_PATH")")")
-            echo "Found FFmpeg Source Dir: $FFMPEG_SRC_DIR"
-          else
-            FFMPEG_SRC_DIR=""
-          fi
-
-          # Dynamically locate FFmpeg build directory containing generated config.h
-          CONFIG_H_PATH=$(find third-party/build-deps/build -name "config.h" | grep -i ffmpeg | head -n 1)
-          if [ -n "$CONFIG_H_PATH" ]; then
-            FFMPEG_BUILD_DIR=$(cygpath -m "$(dirname "$CONFIG_H_PATH")")
-            echo "Found FFmpeg Build Dir: $FFMPEG_BUILD_DIR"
-          else
-            FFMPEG_BUILD_DIR=""
-          fi
-
-          EXTRA_CFLAGS=""
-          if [ -n "$FFMPEG_SRC_DIR" ]; then
-            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$FFMPEG_SRC_DIR"
-          fi
-          if [ -n "$FFMPEG_BUILD_DIR" ]; then
-            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$FFMPEG_BUILD_DIR"
-          fi
-
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="$EXTRA_CFLAGS" \
-          -DCMAKE_C_FLAGS="$EXTRA_CFLAGS"
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
         shell: msys2 {0}
