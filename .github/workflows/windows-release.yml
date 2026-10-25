@@ -148,13 +148,15 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Copy internal FFmpeg headers (like cbs_h264.h) directly into the include folder so system includes resolve them
-          FFMPEG_SRC_SUBDIR=$(find third-party/build-deps -type d -name "libavcodec" | grep -v "dist" | head -n 1)
-          if [ -n "$FFMPEG_SRC_SUBDIR" ]; then
-            echo "Copying internal libavcodec headers from $FFMPEG_SRC_SUBDIR"
-            mkdir -p third-party/build-deps/dist/Windows-AMD64/include/libavcodec
-            cp -f "$FFMPEG_SRC_SUBDIR"/*.h third-party/build-deps/dist/Windows-AMD64/include/libavcodec/ || true
-          fi
+          # Dynamically locate and copy all internal FFmpeg codec headers (like cbs_h264.h) into the dist include directory
+          mkdir -p third-party/build-deps/dist/Windows-AMD64/include/libavcodec
+          find . -name "cbs_h264.h" | while read -r file; do
+            dir=$(dirname "$file")
+            if [ -d "$dir" ]; then
+              echo "Found internal headers at: $dir"
+              cp -f "$dir"/*.h third-party/build-deps/dist/Windows-AMD64/include/libavcodec/ || true
+            fi
+          done
 
       - name: Configure CMake Build
         shell: msys2 {0}
