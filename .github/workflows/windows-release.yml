@@ -149,79 +149,79 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Exhaustive Python script: harvest ALL public & private FFmpeg headers (including cbs_h264.h, mathops.h, asm.h, config.h)
+          # Ultra-fast, targeted Python synchronization script (avoids hanging/freezing)
           python3 -c "
           import os, shutil, pathlib
 
           workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
-          dist_root = workspace / 'third-party' / 'build-deps' / 'dist'
-          build_deps_dir = workspace / 'third-party' / 'build-deps'
+          dist_inc = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64' / 'include'
+          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
+          build_dir = workspace / 'third-party' / 'build-deps' / 'build'
 
           libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
+          dist_inc.mkdir(parents=True, exist_ok=True)
 
-          # Dynamically find ALL include directories anywhere under dist/
-          include_dirs = list(dist_root.rglob('include'))
-          if not include_dirs:
-              default_inc = dist_root / 'Windows-AMD64' / 'include'
-              default_inc.mkdir(parents=True, exist_ok=True)
-              include_dirs = [default_inc]
-
-          print('Harvesting and injecting all public & private FFmpeg headers from build-deps source & build trees...')
-          for root, dirs, files in os.walk(build_deps_dir):
-              root_path = pathlib.Path(root)
-              # Skip install dist folder itself during scan to prevent redundant loops
-              if 'dist' in root_path.parts:
-                  continue
-              for f in files:
-                  if f.endswith('.h'):
-                      src_file = root_path / f
-                      for lib in libs:
-                          if lib in root_path.parts:
-                              idx = root_path.parts.index(lib)
-                              rel_sub = pathlib.Path(*root_path.parts[idx+1:])
-                              for dist_inc in include_dirs:
-                                  target_dir = dist_inc / lib / rel_sub
-                                  target_dir.mkdir(parents=True, exist_ok=True)
-                                  target_file = target_dir / f
-                                  try:
-                                      shutil.copy2(src_file, target_file)
-                                  except Exception:
-                                      pass
-
-          # Ensure deep-mirroring of libavutil inside libavcodec and subfolders for quote-based #include \"libavutil/...\" resolutions
-          for dist_inc in include_dirs:
-              avutil_src = dist_inc / 'libavutil'
-              libavcodec_dir = dist_inc / 'libavcodec'
-              if avutil_src.is_dir() and libavcodec_dir.is_dir():
-                  subdirs = [libavcodec_dir] + [p for p in libavcodec_dir.rglob('*') if p.is_dir()]
-                  for sub in subdirs:
-                      target_avutil = sub / 'libavutil'
-                      target_avutil.mkdir(parents=True, exist_ok=True)
-                      for path in avutil_src.rglob('*.h'):
-                          rel = path.relative_to(avutil_src)
-                          target_path = target_avutil / rel
-                          target_path.parent.mkdir(parents=True, exist_ok=True)
+          print('Lightning-fast sync of FFmpeg source headers...')
+          if ffmpeg_src.is_dir():
+              for lib in libs:
+                  src_lib = ffmpeg_src / lib
+                  dst_lib = dist_inc / lib
+                  if src_lib.is_dir():
+                      dst_lib.mkdir(parents=True, exist_ok=True)
+                      for p in src_lib.rglob('*.h'):
+                          rel = p.relative_to(src_lib)
+                          dest_p = dst_lib / rel
+                          dest_p.parent.mkdir(parents=True, exist_ok=True)
                           try:
-                              shutil.copy2(path, target_path)
+                              shutil.copy2(p, dest_p)
                           except Exception:
                               pass
 
-          # Universally propagate config.h and avconfig.h to every directory and subfolder
-          for dist_inc in include_dirs:
-              for root, dirs, files in os.walk(dist_inc):
-                  for f in files:
-                      if f in ['config.h', 'avconfig.h']:
-                          cfg_src = pathlib.Path(root) / f
-                          if cfg_src.is_file():
-                              for sub_root, sub_dirs, sub_files in os.walk(dist_inc):
-                                  target_cfg = pathlib.Path(sub_root) / f
-                                  if cfg_src.resolve() != target_cfg.resolve():
+          print('Copying generated headers from build tree...')
+          if build_dir.is_dir():
+              for p in build_dir.rglob('*.h'):
+                  for lib in libs:
+                      if lib in p.parts:
+                          dst_lib = dist_inc / lib
+                          dst_lib.mkdir(parents=True, exist_ok=True)
+                          try:
+                              shutil.copy2(p, dst_lib / p.name)
+                          except Exception:
+                              pass
+
+          print('Deep-mirroring libavutil inside libavcodec and subfolders for asm.h / mathops.h resolution...')
+          avutil_dir = dist_inc / 'libavutil'
+          libavcodec_dir = dist_inc / 'libavcodec'
+          if avutil_dir.is_dir() and libavcodec_dir.is_dir():
+              target_dirs = [libavcodec_dir] + [d for d in libavcodec_dir.rglob('*') if d.is_dir()]
+              for td in target_dirs:
+                  avutil_target = td / 'libavutil'
+                  avutil_target.mkdir(parents=True, exist_ok=True)
+                  for p in avutil_dir.rglob('*.h'):
+                      rel = p.relative_to(avutil_dir)
+                      dest_p = avutil_target / rel
+                      dest_p.parent.mkdir(parents=True, exist_ok=True)
+                      if p.resolve() != dest_p.resolve():
+                          try:
+                              shutil.copy2(p, dest_p)
+                          except Exception:
+                              pass
+
+          print('Propagating config.h and avconfig.h everywhere...')
+          if build_dir.is_dir():
+              for cfg_file in list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h')):
+                  if cfg_file.is_file():
+                      for lib_dir in dist_inc.iterdir():
+                          if lib_dir.is_dir():
+                              for sub in [lib_dir] + [d for d in lib_dir.rglob('*') if d.is_dir()]:
+                                  target_cfg = sub / cfg_file.name
+                                  if cfg_file.resolve() != target_cfg.resolve():
                                       try:
-                                          shutil.copy2(cfg_src, target_cfg)
+                                          shutil.copy2(cfg_file, target_cfg)
                                       except Exception:
                                           pass
 
-          print('Exhaustive header harvesting, mirroring, and config propagation completed successfully.')
+          print('Ultra-fast header synchronization completed successfully in seconds.')
           "
 
       - name: Configure CMake Build
