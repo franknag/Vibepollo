@@ -104,7 +104,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally & Stage Files (Sequential to Prevent Freezing)
+      - name: Build Dependencies Locally & Stage Files (Using MSYS2_OPTION=3 to Prevent Freezing)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -140,11 +140,12 @@ jobs:
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=ON \
-          -DMSYS2_OPTION=2
+          -DMSYS2_OPTION=3
           
+          # Build dependencies safely with option 3 preventing process handle locks
           cmake --build third-party/build-deps/build --config Release
 
-          # Robust Python staging script (bypasses install freeze and handles all header mirroring)
+          # Comprehensive Python staging and header synchronization script
           python3 -c "
           import os, shutil, pathlib
 
