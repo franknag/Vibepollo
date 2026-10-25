@@ -84,7 +84,7 @@ jobs:
         shell: pwsh
         run: |
           $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath =$envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
 
@@ -97,14 +97,14 @@ jobs:
           }
           $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to$targetDir"
+              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
               Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
+      - name: Build Dependencies Locally & Stage Files (Bypassing Fragile Install)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -142,26 +142,34 @@ jobs:
           -DBUILD_FFMPEG_SVT_AV1=ON \
           -DMSYS2_OPTION=2
           
+          # Build dependencies completely (compiles all static libraries and objects)
           cmake --build third-party/build-deps/build --config Release --parallel 2
-          cmake --install third-party/build-deps/build
 
-          # Universal fallback: find and copy all compiled static archives (.a) into the dist library directory
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
-          find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
+          # NOTE: We intentionally skip 'cmake --install' here to prevent the MSYS2 pkg-config freeze!
+          # Instead, we run a robust Python script below to manually stage everything cleanly and instantly.
 
-          # Ultra-fast, comprehensive Python synchronization script with universal recursive mirroring
           python3 -c "
           import os, shutil, pathlib
 
           workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
-          dist_inc = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64' / 'include'
-          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
+          dist_dir = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64'
+          dist_lib = dist_dir / 'lib'
+          dist_inc = dist_dir / 'include'
           build_dir = workspace / 'third-party' / 'build-deps' / 'build'
+          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
 
-          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
+          dist_lib.mkdir(parents=True, exist_ok=True)
           dist_inc.mkdir(parents=True, exist_ok=True)
 
-          print('1. Harvesting ALL source headers from FFmpeg source tree...')
+          print('1. Staging all compiled static libraries (.a)...')
+          for p in build_dir.rglob('*.a'):
+              try:
+                  shutil.copy2(p, dist_lib / p.name)
+              except Exception:
+                  pass
+
+          print('2. Harvesting all public & private FFmpeg source headers (including cbs_h264.h)...')
+          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
           if ffmpeg_src.is_dir():
               for lib in libs:
                   src_lib = ffmpeg_src / lib
@@ -177,7 +185,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('2. Copying generated headers from build tree...')
+          print('3. Copying generated headers (config.h, etc.) from build tree...')
           if build_dir.is_dir():
               for p in build_dir.rglob('*.h'):
                   for lib in libs:
@@ -189,7 +197,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('3. Universally mirroring libavutil into EVERY directory and subfolder (fixing nested x86/asm.h lookups)...')
+          print('4. Universally deep-mirroring libavutil into every directory/subfolder (fixing asm.h lookups)...')
           avutil_dir = dist_inc / 'libavutil'
           if avutil_dir.is_dir():
               all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
@@ -206,7 +214,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('4. Universally propagating config.h and avconfig.h everywhere...')
+          print('5. Universally propagating config.h and avconfig.h everywhere...')
           if build_dir.is_dir():
               for cfg_file in list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h')):
                   if cfg_file.is_file():
@@ -218,7 +226,7 @@ jobs:
                               except Exception:
                                   pass
 
-          print('Universal header synchronization and deep recursive mirroring completed successfully.')
+          print('Staging and header synchronization completed successfully without installation freezes.')
           "
 
       - name: Configure CMake Build
@@ -241,4 +249,22 @@ jobs:
           
           if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
           if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
-          if (
+          if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
+          
+          if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
+          Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
+          
+          $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
+          $hashStr = $hashObj.Hash.ToLower()
+          "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
+          
+          Write-Host "--- Generated Checksum ---"
+          Get-Content "apollovibe-windows-x64.zip.sha256"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollovibe-windows-x64
+          path: |
+            apollovibe-windows-x64.zip
+            apollovibe-windows-x64.zip.sha256
