@@ -151,11 +151,35 @@ jobs:
       - name: Configure CMake Build
         shell: msys2 {0}
         run: |
-          # Point directly to the core FFmpeg submodule source directory for internal bitstream headers (cbs_h264.h)
-          FFMPEG_SRC_DIR=$(cygpath -m "$GITHUB_WORKSPACE/third-party/build-deps/third-party/FFmpeg")
+          # Dynamically locate FFmpeg internal source directory containing cbs_h264.h
+          CBS_H264_PATH=$(find third-party/build-deps/build -name "cbs_h264.h" | head -n 1)
+          if [ -n "$CBS_H264_PATH" ]; then
+            FFMPEG_SRC_DIR=$(cygpath -m "$(dirname "$(dirname "$CBS_H264_PATH")")")
+            echo "Found FFmpeg Source Dir: $FFMPEG_SRC_DIR"
+          else
+            FFMPEG_SRC_DIR=""
+          fi
+
+          # Dynamically locate FFmpeg build directory containing generated config.h
+          CONFIG_H_PATH=$(find third-party/build-deps/build -name "config.h" | grep -i ffmpeg | head -n 1)
+          if [ -n "$CONFIG_H_PATH" ]; then
+            FFMPEG_BUILD_DIR=$(cygpath -m "$(dirname "$CONFIG_H_PATH")")
+            echo "Found FFmpeg Build Dir: $FFMPEG_BUILD_DIR"
+          else
+            FFMPEG_BUILD_DIR=""
+          fi
+
+          EXTRA_CFLAGS=""
+          if [ -n "$FFMPEG_SRC_DIR" ]; then
+            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$FFMPEG_SRC_DIR"
+          fi
+          if [ -n "$FFMPEG_BUILD_DIR" ]; then
+            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$FFMPEG_BUILD_DIR"
+          fi
+
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-I$FFMPEG_SRC_DIR" \
-          -DCMAKE_C_FLAGS="-I$FFMPEG_SRC_DIR"
+          -DCMAKE_CXX_FLAGS="$EXTRA_CFLAGS" \
+          -DCMAKE_C_FLAGS="$EXTRA_CFLAGS"
 
       - name: Compile ApolloVibe (Sunshine Host)
         shell: msys2 {0}
