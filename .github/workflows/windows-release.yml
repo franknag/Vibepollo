@@ -1,4 +1,3 @@
-
 name: Generate Windows Release
 
 on:
@@ -84,7 +83,7 @@ jobs:
         shell: pwsh
         run: |
           $envPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
-          $cleanedPath =$envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
+          $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
 
@@ -97,7 +96,7 @@ jobs:
           }
           $found = Get-ChildItem -Path "C:\", "D:\" -Filter "npm-cli.js" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) {
-              Write-Host "Copying npm-cli.js from $($found.FullName) to$targetDir"
+              Write-Host "Copying npm-cli.js from $($found.FullName) to $targetDir"
               Copy-Item -Path $found.FullName -Destination "$targetDir/npm-cli.js" -Force
           } else {
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
@@ -208,11 +207,16 @@ jobs:
           Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
           
           $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
-          $hashStr =$hashObj.Hash.ToLower()
+          $hashStr = $hashObj.Hash.ToLower()
           "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
           
           Write-Host "--- Generated Checksum ---"
           Get-Content "apollovibe-windows-x64.zip.sha256"
 
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollovibe-windows-x64-release
+          path: |
+            apollovibe-windows-x64.zip
+            apollovibe-windows-x64.zip.sha256
