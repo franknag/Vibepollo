@@ -149,7 +149,7 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Ultra-fast, targeted Python synchronization script (avoids hanging/freezing)
+          # Lightning-fast, precise Python script harvesting source headers (asm.h, mathops.h, cbs_h264.h) and config.h
           python3 -c "
           import os, shutil, pathlib
 
@@ -161,7 +161,7 @@ jobs:
           libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
           dist_inc.mkdir(parents=True, exist_ok=True)
 
-          print('Lightning-fast sync of FFmpeg source headers...')
+          print('1. Harvesting ALL public and private source headers from FFmpeg source tree...')
           if ffmpeg_src.is_dir():
               for lib in libs:
                   src_lib = ffmpeg_src / lib
@@ -177,7 +177,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('Copying generated headers from build tree...')
+          print('2. Copying generated headers from build tree...')
           if build_dir.is_dir():
               for p in build_dir.rglob('*.h'):
                   for lib in libs:
@@ -189,7 +189,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('Deep-mirroring libavutil inside libavcodec and subfolders for asm.h / mathops.h resolution...')
+          print('3. Deep-mirroring libavutil inside libavcodec and subfolders for asm.h / mathops.h resolution...')
           avutil_dir = dist_inc / 'libavutil'
           libavcodec_dir = dist_inc / 'libavcodec'
           if avutil_dir.is_dir() and libavcodec_dir.is_dir():
@@ -207,7 +207,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('Propagating config.h and avconfig.h everywhere...')
+          print('4. Universally propagating config.h and avconfig.h everywhere...')
           if build_dir.is_dir():
               for cfg_file in list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h')):
                   if cfg_file.is_file():
@@ -221,7 +221,7 @@ jobs:
                                       except Exception:
                                           pass
 
-          print('Ultra-fast header synchronization completed successfully in seconds.')
+          print('Source header harvesting and configuration propagation completed instantly.')
           "
 
       - name: Configure CMake Build
