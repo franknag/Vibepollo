@@ -149,7 +149,7 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Robust Pathlib-based header sync, generation inclusion, and mirroring (immune to backslash syntax errors)
+          # Robust Pathlib-based header sync, generation inclusion, mirroring, and universal config.h propagation
           python3 -c "
           import os, shutil, pathlib
 
@@ -190,7 +190,20 @@ jobs:
                   target_path = avcodec_avutil_dist / rel
                   target_path.parent.mkdir(parents=True, exist_ok=True)
                   shutil.copy2(path, target_path)
-              print('Successfully mirrored libavutil headers into libavcodec/libavutil.')
+
+          print('Universally propagating config.h and avconfig.h to all include directories and subdirectories...')
+          config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
+          config_files += list(dist_inc.rglob('config.h')) + list(dist_inc.rglob('avconfig.h'))
+
+          for cfg in config_files:
+              if cfg.is_file():
+                  for lib_dir in dist_inc.iterdir():
+                      if lib_dir.is_dir():
+                          shutil.copy2(cfg, lib_dir / cfg.name)
+                          for sub_dir in lib_dir.iterdir():
+                              if sub_dir.is_dir():
+                                  shutil.copy2(cfg, sub_dir / cfg.name)
+          print('Header synchronization and configuration propagation completed successfully.')
           "
 
       - name: Configure CMake Build
