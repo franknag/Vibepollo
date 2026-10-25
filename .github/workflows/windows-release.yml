@@ -140,7 +140,7 @@ jobs:
           -DBUILD_FFMPEG_SVT_AV1=ON \
           -DMSYS2_OPTION=2
           
-          cmake --build third-party/build-deps/build --config Release
+          cmake --build third-party/build-deps/build --config Release --parallel 2
           cmake --install third-party/build-deps/build
 
           # Universal fallback: find and copy all compiled static archives (.a) into the dist library directory
@@ -156,7 +156,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd build
-          ninja sunshine
+          ninja -j2 sunshine
 
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
