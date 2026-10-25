@@ -149,54 +149,47 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Robust Python-based header sync, generation inclusion, and mirroring (fixes x86/asm.h lookup issues)
+          # Robust Pathlib-based header sync, generation inclusion, and mirroring (immune to backslash syntax errors)
           python3 -c "
-          import os, shutil
+          import os, shutil, pathlib
 
-          workspace = os.environ.get('GITHUB_WORKSPACE', '.')
-          dist_inc = os.path.join(workspace, 'third-party', 'build-deps', 'dist', 'Windows-AMD64', 'include')
-          ffmpeg_src = os.path.join(workspace, 'third-party', 'build-deps', 'third-party', 'FFmpeg')
-          build_dir = os.path.join(workspace, 'third-party', 'build-deps', 'build')
+          workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
+          dist_inc = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64' / 'include'
+          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
+          build_dir = workspace / 'third-party' / 'build-deps' / 'build'
 
           libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
 
           print('Syncing FFmpeg source headers recursively...')
           for lib in libs:
-              src = os.path.join(ffmpeg_src, lib)
-              dst = os.path.join(dist_inc, lib)
-              if os.path.isdir(src):
-                  os.makedirs(dst, exist_ok=True)
-                  for root, dirs, files in os.walk(src):
-                      rel = os.path.relpath(root, src)
-                      target_subdir = os.path.join(dst, rel)
-                      os.makedirs(target_subdir, exist_ok=True)
-                      for f in files:
-                          if f.endswith('.h'):
-                              shutil.copy2(os.path.join(root, f), os.path.join(target_subdir, f))
+              src = ffmpeg_src / lib
+              dst = dist_inc / lib
+              if src.is_dir():
+                  for path in src.rglob('*.h'):
+                      rel = path.relative_to(src)
+                      target_path = dst / rel
+                      target_path.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(path, target_path)
 
           print('Copying generated headers from build tree...')
-          if os.path.isdir(build_dir):
-              for root, dirs, files in os.walk(build_dir):
-                  for f in files:
-                      if f.endswith('.h'):
-                          for lib in libs:
-                              if f'/{lib}/' in root.replace('\\', '/') or root.endswith(lib):
-                                  dst_lib = os.path.join(dist_inc, lib)
-                                  os.makedirs(dst_lib, exist_ok=True)
-                                  shutil.copy2(os.path.join(root, f), os.path.join(dst_lib, f))
+          if build_dir.is_dir():
+              for path in build_dir.rglob('*.h'):
+                  for lib in libs:
+                      if lib in path.parts:
+                          dst_lib = dist_inc / lib
+                          dst_lib.mkdir(parents=True, exist_ok=True)
+                          shutil.copy2(path, dst_lib / path.name)
 
           print('Mirroring libavutil inside libavcodec for quote-based include resolution...')
-          avutil_dist = os.path.join(dist_inc, 'libavutil')
-          avcodec_avutil_dist = os.path.join(dist_inc, 'libavcodec', 'libavutil')
-          if os.path.isdir(avutil_dist):
-              os.makedirs(avcodec_avutil_dist, exist_ok=True)
-              for root, dirs, files in os.walk(avutil_dist):
-                  rel = os.path.relpath(root, avutil_dist)
-                  target_subdir = os.path.join(avcodec_avutil_dist, rel)
-                  os.makedirs(target_subdir, exist_ok=True)
-                  for f in files:
-                      if f.endswith('.h'):
-                          shutil.copy2(os.path.join(root, f), os.path.join(target_subdir, f))
+          avutil_dist = dist_inc / 'libavutil'
+          avcodec_avutil_dist = dist_inc / 'libavcodec' / 'libavutil'
+          if avutil_dist.is_dir():
+              avcodec_avutil_dist.mkdir(parents=True, exist_ok=True)
+              for path in avutil_dist.rglob('*.h'):
+                  rel = path.relative_to(avutil_dist)
+                  target_path = avcodec_avutil_dist / rel
+                  target_path.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(path, target_path)
               print('Successfully mirrored libavutil headers into libavcodec/libavutil.')
           "
 
