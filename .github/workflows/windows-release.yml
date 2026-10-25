@@ -54,6 +54,8 @@ jobs:
             mingw-w64-ucrt-x86_64-libvpl
             mingw-w64-ucrt-x86_64-svt-av1
             mingw-w64-ucrt-x86_64-amf-headers
+            mingw-w64-ucrt-x86_64-python
+
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
         run: |
@@ -77,6 +79,7 @@ jobs:
               git clean -fdx
             fi
           fi
+
       - name: Sanitize MSYS2 Environment Paths
         shell: pwsh
         run: |
@@ -84,6 +87,7 @@ jobs:
           $cleanedPath = $envPath -replace 'msys64\\msys64', 'msys64' -replace 'msys64/msys64', 'msys64'
           [Environment]::SetEnvironmentVariable("PATH", $cleanedPath, "Process")
           Write-Host "Successfully sanitized PATH environment variable."
+
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
@@ -99,6 +103,7 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
+
       - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
@@ -136,38 +141,81 @@ jobs:
           -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=ON \
           -DMSYS2_OPTION=2
-          -DBUILD_WERROR=OFF
           
           cmake --build third-party/build-deps/build --config Release --parallel 2
           cmake --install third-party/build-deps/build
+
           # Universal fallback: find and copy all compiled static archives (.a) into the dist library directory
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
-          # Comprehensive Header Sync: Copy all internal and generated headers from source & build trees into dist/include
-          echo "Syncing all internal and generated FFmpeg headers..."
-          find . -type d \( -name "libavutil" -o -name "libavcodec" -o -name "libavformat" -o -name "libswscale" -o -name "libswresample" -o -name "libavdevice" -o -name "libavfilter" \) | grep -v "dist" | while read -r src_dir; do
-            sub_name=$(basename "$src_dir")
-            target_dir="third-party/build-deps/dist/Windows-AMD64/include/$sub_name"
-            mkdir -p "$target_dir"
-            cp -f "$src_dir"/*.h "$target_dir/" 2>/dev/null || true
-          done
-          find third-party/build-deps/build -name "*.h" | while read -r build_header; do
-            parent_dir=$(basename "$(dirname "$build_header")")
-            if [[ "$parent_dir" =~ ^libav ]] || [[ "$parent_dir" =~ ^libsw ]]; then
-              target_dir="third-party/build-deps/dist/Windows-AMD64/include/$parent_dir"
-              mkdir -p "$target_dir"
-              cp -f "$build_header" "$target_dir/" 2>/dev/null || true
-            fi
-          done
+
+          # Robust Python Header Sync & config.h Propagation Script
+          python3 -c "
+          import os, shutil, pathlib
+
+          workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
+          dist_dir = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64'
+          dist_inc = dist_dir / 'include'
+          build_dir = workspace / 'third-party' / 'build-deps' / 'build'
+          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
+
+          dist_inc.mkdir(parents=True, exist_ok=True)
+          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
+
+          print('1. Harvesting source headers...')
+          if ffmpeg_src.is_dir():
+              for lib in libs:
+                  src_lib = ffmpeg_src / lib
+                  dst_lib = dist_inc / lib
+                  if src_lib.is_dir():
+                      dst_lib.mkdir(parents=True, exist_ok=True)
+                      for p in src_lib.rglob('*.h'):
+                          rel = p.relative_to(src_lib)
+                          dest_p = dst_lib / rel
+                          dest_p.parent.mkdir(parents=True, exist_ok=True)
+                          try:
+                              shutil.copy2(p, dest_p)
+                          except Exception:
+                              pass
+
+          print('2. Harvesting build generated headers...')
+          if build_dir.is_dir():
+              for p in build_dir.rglob('*.h'):
+                  for lib in libs:
+                      if lib in p.parts:
+                          dst_lib = dist_inc / lib
+                          dst_lib.mkdir(parents=True, exist_ok=True)
+                          try:
+                              shutil.copy2(p, dst_lib / p.name)
+                          except Exception:
+                              pass
+
+          print('3. Universally propagating config.h and avconfig.h to every folder and subfolder...')
+          if build_dir.is_dir():
+              config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
+              for cfg in config_files:
+                  if cfg.is_file():
+                      all_dirs = [dist_inc] + [p for p in dist_inc.rglob('*') if p.is_dir()]
+                      for d in all_dirs:
+                          try:
+                              shutil.copy2(cfg, d / cfg.name)
+                          except Exception:
+                              pass
+
+          print('Header sync and config propagation completed successfully.')
+          "
+
       - name: Configure CMake Build
         shell: msys2 {0}
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
       - name: Compile ApolloVibe (Sunshine Host)
         shell: msys2 {0}
         run: |
           cd build
           ninja -j2 sunshine
+
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
@@ -188,6 +236,7 @@ jobs:
           
           Write-Host "--- Generated Checksum ---"
           Get-Content "apollovibe-windows-x64.zip.sha256"
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
