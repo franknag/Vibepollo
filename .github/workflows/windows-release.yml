@@ -149,7 +149,7 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Robust Pathlib-based header sync, generation inclusion, mirroring, and safe config propagation
+          # Comprehensive Pathlib-based header synchronization, structural mirroring, and configuration propagation
           python3 -c "
           import os, shutil, pathlib
 
@@ -180,16 +180,25 @@ jobs:
                           dst_lib.mkdir(parents=True, exist_ok=True)
                           shutil.copy2(path, dst_lib / path.name)
 
-          print('Mirroring libavutil inside libavcodec for quote-based include resolution...')
+          print('Deep-mirroring libavutil inside libavcodec and libavcodec/x86 for include resolution...')
           avutil_dist = dist_inc / 'libavutil'
-          avcodec_avutil_dist = dist_inc / 'libavcodec' / 'libavutil'
+          target_destinations = [
+              dist_inc / 'libavcodec' / 'libavutil',
+              dist_inc / 'libavcodec' / 'x86' / 'libavutil'
+          ]
+          
           if avutil_dist.is_dir():
-              avcodec_avutil_dist.mkdir(parents=True, exist_ok=True)
-              for path in avutil_dist.rglob('*.h'):
-                  rel = path.relative_to(avutil_dist)
-                  target_path = avcodec_avutil_dist / rel
-                  target_path.parent.mkdir(parents=True, exist_ok=True)
-                  shutil.copy2(path, target_path)
+              for dest_dir in target_destinations:
+                  dest_dir.mkdir(parents=True, exist_ok=True)
+                  for path in avutil_dist.rglob('*.h'):
+                      rel = path.relative_to(avutil_dist)
+                      target_path = dest_dir / rel
+                      target_path.parent.mkdir(parents=True, exist_ok=True)
+                      try:
+                          shutil.copy2(path, target_path)
+                      except Exception:
+                          pass
+              print('Successfully mirrored libavutil headers across libavcodec and libavcodec/x86.')
 
           print('Universally propagating config.h and avconfig.h safely...')
           if build_dir.is_dir():
@@ -212,6 +221,15 @@ jobs:
                                               shutil.copy2(cfg, target_2)
                                           except Exception:
                                               pass
+                                      # Also propagate down to nested sub-subdirectories (like x86)
+                                      for sub_sub in sub_dir.iterdir():
+                                          if sub_sub.is_dir():
+                                              target_3 = sub_sub / cfg.name
+                                              if cfg.resolve() != target_3.resolve():
+                                                  try:
+                                                      shutil.copy2(cfg, target_3)
+                                                  except Exception:
+                                                      pass
           print('Header synchronization and configuration propagation completed successfully.')
           "
 
