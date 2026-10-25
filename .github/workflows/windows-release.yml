@@ -137,7 +137,7 @@ jobs:
           -DCMAKE_C_COMPILER=/ucrt64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
-          -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
+          -DCMAKE_RANLIB=/ucrt64/bin/ranlib.exe \
           -DBUILD_FFMPEG_SVT_AV1=ON \
           -DMSYS2_OPTION=2
           
@@ -148,25 +148,23 @@ jobs:
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Comprehensive Header & Generated Config Sync: Copy all internal/generated headers into dist/include
-          echo "Syncing all internal and generated FFmpeg headers and config files..."
-          find . -type d \( -name "libavutil" -o -name "libavcodec" -o -name "libavformat" -o -name "libswscale" -o -name "libswresample" -o -name "libavdevice" -o -name "libavfilter" \) | grep -v "dist" | while read -r src_dir; do
-            sub_name=$(basename "$src_dir")
-            target_dir="third-party/build-deps/dist/Windows-AMD64/include/$sub_name"
+          # Safe & Isolated Header Sync: Copy internal/generated headers ONLY into their specific subdirectories under include/
+          echo "Safely syncing internal and generated FFmpeg headers into isolated subdirectories..."
+          for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
+            target_dir="third-party/build-deps/dist/Windows-AMD64/include/$lib"
             mkdir -p "$target_dir"
-            cp -f "$src_dir"/*.h "$target_dir/" 2>/dev/null || true
-          done
-
-          # Specifically find and copy generated config headers (config.h, avconfig.h, config.asm, etc.) from build trees
-          find third-party/build-deps/build -name "*.h" -o -name "*.asm" | while read -r build_header; do
-            parent_dir=$(basename "$(dirname "$build_header")")
-            if [[ "$parent_dir" =~ ^libav ]] || [[ "$parent_dir" =~ ^libsw ]]; then
-              target_dir="third-party/build-deps/dist/Windows-AMD64/include/$parent_dir"
-              mkdir -p "$target_dir"
-              cp -f "$build_header" "$target_dir/" 2>/dev/null || true
-            else
-              cp -f "$build_header" third-party/build-deps/dist/Windows-AMD64/include/ 2>/dev/null || true
-            fi
+            
+            # Copy from source tree
+            find . -type d -name "$lib" | grep -v "dist" | while read -r src_dir; do
+              cp -f "$src_dir"/*.h "$target_dir/" 2>/dev/null || true
+            done
+            
+            # Copy generated config/internal headers from build tree
+            find third-party/build-deps/build -name "*.h" | while read -r h_file; do
+              if [[ "$h_file" == *"/$lib/"* ]]; then
+                cp -f "$h_file" "$target_dir/" 2>/dev/null || true
+              fi
+            done
           done
 
       - name: Configure CMake Build
