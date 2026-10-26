@@ -38,6 +38,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ffmpeg
             mingw-w64-ucrt-x86_64-miniupnpc
             mingw-w64-ucrt-x86_64-cppwinrt
+            mingw-w64-ucrt-x86_64-curl
             mingw-w64-ucrt-x86_64-curl-winssl
             mingw-w64-ucrt-x86_64-qt6-static
             mingw-w64-ucrt-x86_64-MinHook
@@ -46,6 +47,8 @@ jobs:
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkg-config
+            mingw-w64-ucrt-x86_64-miniupnpc
+            mingw-w64-ucrt-x86_64-nlohmann-json
             
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
