@@ -52,7 +52,6 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-libvpl
-
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
@@ -77,11 +76,13 @@ jobs:
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/subsystem:windows|-Wl,-subsystem,windows|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/entry:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
       - name: Configure CMake Build
+        shell: msys2 {0}
         run: |
-          mkdir build
+          mkdir -p build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=/ucrt64
       - name: Compile ApolloVibe (Sunshine Host)
+        shell: msys2 {0}
         run: |
           cd build
           ninja sunshine
