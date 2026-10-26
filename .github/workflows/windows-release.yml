@@ -81,10 +81,11 @@ jobs:
           mkdir -p build
           cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=/ucrt64
-      - name: Compile ApolloVibe (Sunshine Host)
+      - name: Compile CBS & ApolloVibe (Sunshine Host)
         shell: msys2 {0}
         run: |
           cd build
+          ninja cbs
           ninja sunshine
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
