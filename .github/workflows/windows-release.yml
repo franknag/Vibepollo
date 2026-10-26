@@ -52,10 +52,6 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-libvpl
-            mingw-w64-ucrt-x86_64-svt-av1
-            mingw-w64-ucrt-x86_64-amf-headers
-            mingw-w64-ucrt-x86_64-ffnvcodec-headers
-            mingw-w64-ucrt-x86_64-python
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
@@ -105,7 +101,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally & Stage via Python (Maximized Parallelism)
+      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -140,84 +136,11 @@ jobs:
           -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++.exe \
           -DCMAKE_AR=/ucrt64/bin/ar.exe \
           -DCMAKE_RANLIB=/usr/bin/ranlib.exe \
-          -DBUILD_FFMPEG_SVT_AV1=ON \
+          -DBUILD_FFMPEG_SVT_AV1=OFF \
           -DMSYS2_OPTION=2
           
-          # SPEEDUP: Utilize all 4 runner cores instead of restricting to 2
-          cmake --build third-party/build-deps/build --config Release --parallel 4
-
-          # Copy compiled static libraries (.a)
-          mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
-          find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
-
-          # Fast Python Staging & Recursive Header/Config Synchronization Script
-          python3 -c "
-          import os, shutil, pathlib
-
-          workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
-          dist_inc = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64' / 'include'
-          build_dir = workspace / 'third-party' / 'build-deps' / 'build'
-          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
-
-          dist_inc.mkdir(parents=True, exist_ok=True)
-          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
-
-          print('1. Harvesting source headers...')
-          if ffmpeg_src.is_dir():
-              for lib in libs:
-                  src_lib = ffmpeg_src / lib
-                  dst_lib = dist_inc / lib
-                  if src_lib.is_dir():
-                      for p in src_lib.rglob('*.h'):
-                          rel = p.relative_to(src_lib)
-                          dest_p = dst_lib / rel
-                          dest_p.parent.mkdir(parents=True, exist_ok=True)
-                          try:
-                              shutil.copy2(p, dest_p)
-                          except Exception:
-                              pass
-
-          print('2. Harvesting build headers...')
-          if build_dir.is_dir():
-              for p in build_dir.rglob('*.h'):
-                  for lib in libs:
-                      if lib in p.parts:
-                          dst_lib = dist_inc / lib
-                          dst_lib.mkdir(parents=True, exist_ok=True)
-                          try:
-                              shutil.copy2(p, dst_lib / p.name)
-                          except Exception:
-                              pass
-
-          print('3. Propagating config.h and avconfig.h everywhere...')
-          if build_dir.is_dir():
-              config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
-              all_dirs = [dist_inc] + [d for d in dist_inc.rglob('*') if d.is_dir()]
-              for cfg in config_files:
-                  if cfg.is_file():
-                      for d in all_dirs:
-                          try:
-                              shutil.copy2(cfg, d / cfg.name)
-                          except Exception:
-                              pass
-
-          print('4. Mirroring libavutil everywhere...')
-          avutil_dir = dist_inc / 'libavutil'
-          if avutil_dir.is_dir():
-              all_target_dirs = [dist_inc] + [d for d in dist_inc.rglob('*') if d.is_dir()]
-              for d in all_target_dirs:
-                  target_avutil = d / 'libavutil'
-                  target_avutil.mkdir(parents=True, exist_ok=True)
-                  for p in avutil_dir.rglob('*.h'):
-                      rel = p.relative_to(avutil_dir)
-                      dest_p = target_avutil / rel
-                      dest_p.parent.mkdir(parents=True, exist_ok=True)
-                      if p.resolve() != dest_p.resolve():
-                          try:
-                              shutil.copy2(p, dest_p)
-                          except Exception:
-                              pass
-          "
+          cmake --build third-party/build-deps/build --config Release
+          cmake --install third-party/build-deps/build
 
       - name: Configure CMake Build
         shell: msys2 {0}
@@ -225,10 +148,9 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Compile ApolloVibe (Sunshine Host)
-        shell: msys2 {0}
         run: |
           cd build
-          ninja -j4 sunshine
+          ninja sunshine
 
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
