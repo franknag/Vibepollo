@@ -41,6 +41,7 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-static
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
+
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
@@ -56,6 +57,7 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
+
       - name: Patch CMake Files for MinGW/GCC Linker Compatibility
         shell: msys2 {0}
         run: |
@@ -64,15 +66,26 @@ jobs:
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/ENTRY:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/subsystem:windows|-Wl,-subsystem,windows|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/entry:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
+
+      - name: Build and Install Prebuilt Dependencies (build-deps)
+        shell: msys2 {0}
+        run: |
+          cd third-party/build-deps
+          mkdir -p build/dist
+          cmake -B build -S . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/build/dist"
+          cmake --build build --target install
+
       - name: Configure CMake Build
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="${{ github.workspace }}/third-party/build-deps/build/dist"
+
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
           ninja sunshine
+
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
@@ -80,23 +93,20 @@ jobs:
           if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
           
-          # Copy core executable and asset structures
           if (Test-Path "build/sunshine.exe") { Copy-Item "build/sunshine.exe" -Destination "$distDir/" -Force }
           if (Test-Path "assets") { Copy-Item -Recurse -Force "assets" -Destination "$distDir/" }
           if (Test-Path "tools") { Copy-Item -Recurse -Force "tools" -Destination "$distDir/" }
           
-          # Create deployment archive in root workspace
           if (Test-Path "apollovibe-windows-x64.zip") { Remove-Item "apollovibe-windows-x64.zip" }
           Compress-Archive -Path "$distDir" -DestinationPath "apollovibe-windows-x64.zip"
           
-          # Generate SHA-256 verification checksum file matching standard format
           $hashObj = Get-FileHash -Path "apollovibe-windows-x64.zip" -Algorithm SHA256
           $hashStr = $hashObj.Hash.ToLower()
           "$hashStr  apollovibe-windows-x64.zip" | Out-File -Encoding ascii "apollovibe-windows-x64.zip.sha256"
           
-          # Output checksum to logs for build verification
           Write-Host "--- Generated Checksum ---"
           Get-Content "apollovibe-windows-x64.zip.sha256"
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
