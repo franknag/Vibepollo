@@ -22,6 +22,8 @@ jobs:
 
       - name: Set up MSYS2 Environment & Dependencies
         uses: msys2/setup-msys2@v2
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"
         with:
           msystem: UCRT64
           update: true
