@@ -55,6 +55,7 @@ jobs:
             mingw-w64-ucrt-x86_64-svt-av1
             mingw-w64-ucrt-x86_64-amf-headers
             mingw-w64-ucrt-x86_64-ffnvcodec-headers
+            mingw-w64-ucrt-x86_64-python
 
       - name: Explicitly Initialize and Fix Nested Submodules (LizardByte Build-Deps)
         shell: msys2 {0}
@@ -104,7 +105,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally (FFmpeg/Build-Deps)
+      - name: Build Dependencies Locally & Stage via Python (FFmpeg/Build-Deps)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -145,55 +146,80 @@ jobs:
           cmake --build third-party/build-deps/build --config Release --parallel 2
           cmake --install third-party/build-deps/build
 
-          # Universal fallback: find and copy all compiled static archives (.a) into the dist library directory
+          # Copy all compiled static libraries (.a)
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Comprehensive Recursive Header Sync & Universal config.h Propagation
-          DIST_INC="third-party/build-deps/dist/Windows-AMD64/include"
-          echo "Recursively syncing all internal and generated FFmpeg headers..."
-          
-          for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
-            src_dir="third-party/build-deps/third-party/FFmpeg/$lib"
-            if [ -d "$src_dir" ]; then
-              target_dir="$DIST_INC/$lib"
-              mkdir -p "$target_dir"
-              find "$src_dir" -name "*.h" | while read -r header; do
-                rel_path="${header#$src_dir/}"
-                dest_sub="$target_dir/$(dirname "$rel_path")"
-                mkdir -p "$dest_sub"
-                cp -f "$header" "$dest_sub/" 2>/dev/null || true
-              done
-            fi
-          done
+          # Robust Python Staging & Recursive Header/Config Synchronization Script
+          python3 -c "
+          import os, shutil, pathlib
 
-          echo "Syncing build generated headers recursively..."
-          find third-party/build-deps/build -name "*.h" | while read -r build_header; do
-            for lib in libavcodec libavutil libavformat libswscale libswresample libavdevice libavfilter; do
-              if [[ "$build_header" == *"/$lib/"* ]]; then
-                target_dir="$DIST_INC/$lib"
-                mkdir -p "$target_dir"
-                cp -f "$build_header" "$target_dir/" 2>/dev/null || true
-              fi
-            done
-          done
+          workspace = pathlib.Path(os.environ.get('GITHUB_WORKSPACE', '.'))
+          dist_inc = workspace / 'third-party' / 'build-deps' / 'dist' / 'Windows-AMD64' / 'include'
+          build_dir = workspace / 'third-party' / 'build-deps' / 'build'
+          ffmpeg_src = workspace / 'third-party' / 'build-deps' / 'third-party' / 'FFmpeg'
 
-          echo "Universally propagating config.h and avconfig.h to every folder and subfolder..."
-          find third-party/build-deps/build -name "config.h" -o -name "avconfig.h" | while read -r cfg_file; do
-            if [ -f "$cfg_file" ]; then
-              find "$DIST_INC" -type d | while read -r sub_dir; do
-                cp -f "$cfg_file" "$sub_dir/" 2>/dev/null || true
-              done
-            fi
-          done
+          dist_inc.mkdir(parents=True, exist_ok=True)
+          libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
 
-          echo "Deep-mirroring libavutil into every subfolder for quote-based include resolutions..."
-          if [ -d "$DIST_INC/libavutil" ]; then
-            find "$DIST_INC" -type d | while read -r target_dir; do
-              mkdir -p "$target_dir/libavutil"
-              cp -rf "$DIST_INC/libavutil/"* "$target_dir/libavutil/" 2>/dev/null || true
-            done
-          fi
+          print('1. Recursively harvesting all public and private source headers (including x86/asm.h)...')
+          if ffmpeg_src.is_dir():
+              for lib in libs:
+                  src_lib = ffmpeg_src / lib
+                  dst_lib = dist_inc / lib
+                  if src_lib.is_dir():
+                      for p in src_lib.rglob('*.h'):
+                          rel = p.relative_to(src_lib)
+                          dest_p = dst_lib / rel
+                          dest_p.parent.mkdir(parents=True, exist_ok=True)
+                          try:
+                              shutil.copy2(p, dest_p)
+                          except Exception:
+                              pass
+
+          print('2. Recursively harvesting build-generated headers...')
+          if build_dir.is_dir():
+              for p in build_dir.rglob('*.h'):
+                  for lib in libs:
+                      if lib in p.parts:
+                          dst_lib = dist_inc / lib
+                          dst_lib.mkdir(parents=True, exist_ok=True)
+                          try:
+                              shutil.copy2(p, dst_lib / p.name)
+                          except Exception:
+                              pass
+
+          print('3. Universally propagating config.h and avconfig.h to EVERY folder and subfolder...')
+          if build_dir.is_dir():
+              config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
+              all_dirs = [dist_inc] + [d for d in dist_inc.rglob('*') if d.is_dir()]
+              for cfg in config_files:
+                  if cfg.is_file():
+                      for d in all_dirs:
+                          try:
+                              shutil.copy2(cfg, d / cfg.name)
+                          except Exception:
+                              pass
+
+          print('4. Deep-mirroring libavutil into every subfolder for quote-based include resolutions...')
+          avutil_dir = dist_inc / 'libavutil'
+          if avutil_dir.is_dir():
+              all_target_dirs = [dist_inc] + [d for d in dist_inc.rglob('*') if d.is_dir()]
+              for d in all_target_dirs:
+                  target_avutil = d / 'libavutil'
+                  target_avutil.mkdir(parents=True, exist_ok=True)
+                  for p in avutil_dir.rglob('*.h'):
+                      rel = p.relative_to(avutil_dir)
+                      dest_p = target_avutil / rel
+                      dest_p.parent.mkdir(parents=True, exist_ok=True)
+                      if p.resolve() != dest_p.resolve():
+                          try:
+                              shutil.copy2(p, dest_p)
+                          except Exception:
+                              pass
+
+          print('Python recursive header sync and config propagation completed successfully.')
+          "
 
       - name: Configure CMake Build
         shell: msys2 {0}
