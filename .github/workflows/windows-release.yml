@@ -28,6 +28,7 @@ jobs:
           cache: true
           install: >-
             base-devel
+            mingw-w64-ucrt-x86_64-cc
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
