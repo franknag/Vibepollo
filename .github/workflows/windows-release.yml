@@ -105,7 +105,7 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Build Dependencies Locally & Stage via Python (FFmpeg/Build-Deps)
+      - name: Build Dependencies Locally & Stage via Python (Maximized Parallelism)
         shell: msys2 {0}
         env:
           MSYS2_PATH_TYPE: inherit
@@ -143,14 +143,14 @@ jobs:
           -DBUILD_FFMPEG_SVT_AV1=ON \
           -DMSYS2_OPTION=2
           
-          cmake --build third-party/build-deps/build --config Release --parallel 2
-          cmake --install third-party/build-deps/build
+          # SPEEDUP: Utilize all 4 runner cores instead of restricting to 2
+          cmake --build third-party/build-deps/build --config Release --parallel 4
 
-          # Copy all compiled static libraries (.a)
+          # Copy compiled static libraries (.a)
           mkdir -p third-party/build-deps/dist/Windows-AMD64/lib
           find third-party/build-deps/build -name "*.a" -exec cp -f {} third-party/build-deps/dist/Windows-AMD64/lib/ \;
 
-          # Robust Python Staging & Recursive Header/Config Synchronization Script
+          # Fast Python Staging & Recursive Header/Config Synchronization Script
           python3 -c "
           import os, shutil, pathlib
 
@@ -162,7 +162,7 @@ jobs:
           dist_inc.mkdir(parents=True, exist_ok=True)
           libs = ['libavcodec', 'libavutil', 'libavformat', 'libswscale', 'libswresample', 'libavdevice', 'libavfilter']
 
-          print('1. Recursively harvesting all public and private source headers (including x86/asm.h)...')
+          print('1. Harvesting source headers...')
           if ffmpeg_src.is_dir():
               for lib in libs:
                   src_lib = ffmpeg_src / lib
@@ -177,7 +177,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('2. Recursively harvesting build-generated headers...')
+          print('2. Harvesting build headers...')
           if build_dir.is_dir():
               for p in build_dir.rglob('*.h'):
                   for lib in libs:
@@ -189,7 +189,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('3. Universally propagating config.h and avconfig.h to EVERY folder and subfolder...')
+          print('3. Propagating config.h and avconfig.h everywhere...')
           if build_dir.is_dir():
               config_files = list(build_dir.rglob('config.h')) + list(build_dir.rglob('avconfig.h'))
               all_dirs = [dist_inc] + [d for d in dist_inc.rglob('*') if d.is_dir()]
@@ -201,7 +201,7 @@ jobs:
                           except Exception:
                               pass
 
-          print('4. Deep-mirroring libavutil into every subfolder for quote-based include resolutions...')
+          print('4. Mirroring libavutil everywhere...')
           avutil_dir = dist_inc / 'libavutil'
           if avutil_dir.is_dir():
               all_target_dirs = [dist_inc] + [d for d in dist_inc.rglob('*') if d.is_dir()]
@@ -217,8 +217,6 @@ jobs:
                               shutil.copy2(p, dest_p)
                           except Exception:
                               pass
-
-          print('Python recursive header sync and config propagation completed successfully.')
           "
 
       - name: Configure CMake Build
@@ -230,7 +228,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd build
-          ninja -j2 sunshine
+          ninja -j4 sunshine
 
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
