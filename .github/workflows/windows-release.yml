@@ -2,12 +2,12 @@ name: Generate Windows Release
 
 on:
   push:
-    branches: [ ApolloVibeC ]
+    branches: [ ApolloVibeMerged ]
   workflow_dispatch:
 
 jobs:
   build-windows:
-    name: Build ApolloVibe 2026.6.1-ms6 (Windows x64)
+    name: Build ApolloVibe Custom (Windows x64)
     runs-on: windows-latest
     
     defaults:
@@ -25,9 +25,17 @@ jobs:
         with:
           msystem: UCRT64
           update: true
+          path-type: inherit
           install: >-
+            git
+            make
+            msys/make
             base-devel
+            pkg-config
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-x264
             mingw-w64-ucrt-x86_64-git
+            mingw-w64-ucrt-x86_64-make
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-toolchain
@@ -41,6 +49,10 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-static
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
+            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-ucrt-x86_64-yasm
+            mingw-w64-ucrt-x86_64-libvpl
+
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
