@@ -24,7 +24,6 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          location: 'C:\msys64'
           update: true
           install: >-
             base-devel
@@ -58,6 +57,13 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
+
+      - name: Patch CMakeLists for MinGW Linker Compatibility
+        shell: msys2 {0}
+        run: |
+          # Translate MSVC-specific linker flags to GCC/MinGW equivalents
+          find . -name "CMakeLists.txt" -type f -exec sed -i 's|/SUBSYSTEM:WINDOWS|-Wl,-subsystem,windows|g' {} +
+          find . -name "CMakeLists.txt" -type f -exec sed -i 's|/ENTRY:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
 
       - name: Configure CMake Build
         run: |
