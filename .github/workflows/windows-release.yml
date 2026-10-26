@@ -26,6 +26,7 @@ jobs:
           msystem: UCRT64
           update: true
           install: >-
+            tar
             base-devel
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
