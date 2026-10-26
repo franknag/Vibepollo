@@ -57,6 +57,7 @@ jobs:
             mingw-w64-ucrt-x86_64-tools
             mingw-w64-ucrt-x86_64-libwebp
             mingw-w64-ucrt-x86_64-onevpl
+            mingw-w64-ucrt-x86_64-libwunwind
             
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
@@ -87,7 +88,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="msys64/ucrt64/bin"
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="libavutil;libswscale;libavformat"
       
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
