@@ -77,7 +77,7 @@ jobs:
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
-          ninja sunshine
+          ninja -C sunshine
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
