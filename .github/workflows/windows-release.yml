@@ -1,12 +1,19 @@
+name: Generate Windows Release
+
+on:
+  push:
+    branches: [ ApolloVibeMerged ]
+  workflow_dispatch:
+
 jobs:
   build-windows:
-    name: Build ApolloVibe 2026.6.1-ms6 (Windows x64)
+    name: Build ApolloVibe Custom (Windows x64)
     runs-on: windows-latest
     
     defaults:
       run:
         shell: msys2 {0}
-
+        
     steps:
       - name: Checkout Repository with Submodules
         uses: actions/checkout@v4
