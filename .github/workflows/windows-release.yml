@@ -74,9 +74,13 @@ jobs:
       - name: Build and Install Prebuilt Dependencies (build-deps)
         shell: msys2 {0}
         run: |
+          export AR=/ucrt64/bin/ar.exe
+          export RANLIB=/ucrt64/bin/ranlib.exe
+          export NM=/ucrt64/bin/nm.exe
+          export STRIP=/ucrt64/bin/strip.exe
           cd third-party/build-deps
           mkdir -p build/dist
-          cmake -B build -S . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/build/dist" -DMSYS2_OPTION=3
+          cmake -B build -S . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/build/dist"
           cmake --build build --target install
 
       - name: Configure CMake Build
