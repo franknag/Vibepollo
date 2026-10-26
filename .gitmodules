@@ -75,7 +75,7 @@
 	branch = master
 [submodule "third-party/moonlight-common-c"]
 	path = third-party/moonlight-common-c
-	url = https://github.com/vibesoftwarecoder/moonlight-common-c
+	url = https://github.com/franknag/moonlight-common-c
 	branch = master
 [submodule "third-party/libwebrtc"]
 	path = third-party/libwebrtc
