@@ -44,6 +44,7 @@ jobs:
             mingw-w64-ucrt-x86_64-nodejs
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
+            mingw-w64-ucrt-x86_64-gcc
             
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
