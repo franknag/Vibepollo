@@ -24,7 +24,6 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          location: 'C:\msys64'
           update: true
           path-type: inherit
           install: >-
