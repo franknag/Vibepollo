@@ -72,7 +72,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="${{ github.workspace }}/third-party/build-deps/build"
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
