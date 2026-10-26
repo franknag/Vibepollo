@@ -15,12 +15,21 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/Simple-Web-Server")
 # libdisplaydevice
 add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/libdisplaydevice")
 
+# libvirtualdisplay
+include(dependencies/libvirtualdisplay_source)
+set(BUILD_VIBESHINE_KWIN_GPU_BRIDGE ON CACHE BOOL
+        "Build the bundled libvirtualdisplay KWin GPU-association bridge" FORCE)
+add_subdirectory("${SUNSHINE_LIBVIRTUALDISPLAY_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/third-party/libvirtualdisplay")
+
 # common dependencies
 include("${CMAKE_MODULE_PATH}/dependencies/nlohmann_json.cmake")
 find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 pkg_check_modules(CURL REQUIRED libcurl)
+
+# SQLite3 (session history persistence)
+pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 
 # miniupnp
 pkg_check_modules(MINIUPNP miniupnpc REQUIRED)
@@ -50,3 +59,6 @@ elseif(UNIX)
         include("${CMAKE_MODULE_PATH}/dependencies/linux.cmake")
     endif()
 endif()
+
+# PyroWave codec library (optional)
+include("${CMAKE_MODULE_PATH}/dependencies/pyrowave.cmake")
