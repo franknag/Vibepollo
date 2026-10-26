@@ -25,8 +25,10 @@ jobs:
         with:
           msystem: UCRT64
           update: true
-          path-type: minimal
+          path-type: inherit
           install: >-
+            git
+            make
             base-devel
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
@@ -45,7 +47,6 @@ jobs:
             mingw-w64-ucrt-x86_64-nasm
             mingw-w64-ucrt-x86_64-yasm
             mingw-w64-ucrt-x86_64-gcc
-
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
         run: |
@@ -61,7 +62,6 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
-
       - name: Patch CMake Files for MinGW/GCC Linker Compatibility
         shell: msys2 {0}
         run: |
@@ -70,30 +70,23 @@ jobs:
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/ENTRY:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/subsystem:windows|-Wl,-subsystem,windows|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/entry:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
-
       - name: Build and Install Prebuilt Dependencies (build-deps)
         shell: msys2 {0}
         run: |
-          export AR=/ucrt64/bin/ar.exe
-          export RANLIB=/ucrt64/bin/ranlib.exe
-          export NM=/ucrt64/bin/nm.exe
-          export STRIP=/ucrt64/bin/strip.exe
           cd third-party/build-deps
-          mkdir -p build/dist
-          cmake -B build -S . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/build/dist"
-          cmake --build build --target install
-
+          mkdir -p build && cd build
+          ../configure --prefix=../install --disable-doc --enable-network --enable-static
+          make -j$(nproc)
+          make install
       - name: Configure CMake Build
         run: |
           mkdir build
           cd build
           cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES="${{ github.workspace }}/third-party/build-deps/build/dist"
-
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
           ninja sunshine
-
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
@@ -114,7 +107,6 @@ jobs:
           
           Write-Host "--- Generated Checksum ---"
           Get-Content "apollovibe-windows-x64.zip.sha256"
-
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
