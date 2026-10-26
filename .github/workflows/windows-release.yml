@@ -50,6 +50,7 @@ jobs:
             mingw-w64-ucrt-x86_64-pkg-config
             mingw-w64-ucrt-x86_64-miniupnpc
             mingw-w64-ucrt-x86_64-nlohmann-json
+            mingw-w64-ucrt-x86_64-libyaml
             
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
@@ -66,6 +67,7 @@ jobs:
               Write-Warning "npm-cli.js source not found yet; creating placeholder structure."
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
+      
       - name: Patch CMake Files for MinGW/GCC Linker Compatibility
         shell: msys2 {0}
         run: |
@@ -74,15 +76,18 @@ jobs:
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/ENTRY:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/subsystem:windows|-Wl,-subsystem,windows|g' {} +
           find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/entry:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
+      
       - name: Configure CMake Build
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
+      
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
           ninja sunshine
+      
       - name: Package Windows Artifacts & Generate Checksums
         shell: pwsh
         run: |
@@ -107,6 +112,7 @@ jobs:
           # Output checksum to logs for build verification
           Write-Host "--- Generated Checksum ---"
           Get-Content "apollovibe-windows-x64.zip.sha256"
+      
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
