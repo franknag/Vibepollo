@@ -25,6 +25,7 @@ jobs:
         with:
           msystem: UCRT64
           update: true
+          path-type: inherit
           install: >-
             base-devel
             mingw-w64-ucrt-x86_64-git
@@ -41,6 +42,8 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-static
             mingw-w64-ucrt-x86_64-MinHook
             mingw-w64-ucrt-x86_64-nodejs
+            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-ucrt-x86_64-yasm
 
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
