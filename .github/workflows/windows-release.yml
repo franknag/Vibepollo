@@ -74,8 +74,9 @@ jobs:
       
       - name: Build and Install Prebuilt Dependencies (build-deps)
         shell: msys2 {0}
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"
         run: |
-          export MSYS2_ARG_CONV_EXCL="*"
           cd third-party/build-deps
           mkdir -p build/dist
           cmake -B build -S . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/build/dist"
