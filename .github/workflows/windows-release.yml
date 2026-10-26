@@ -51,6 +51,7 @@ jobs:
             mingw-w64-ucrt-x86_64-miniupnpc
             mingw-w64-ucrt-x86_64-nlohmann-json
             mingw-w64-ucrt-x86_64-libyaml
+            mingw-w64-ucrt-x86_64-onevpl
             
       - name: Ensure NPM CLI Path Compatibility for CMake
         shell: pwsh
