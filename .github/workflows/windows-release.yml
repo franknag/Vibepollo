@@ -57,7 +57,6 @@ jobs:
             mingw-w64-ucrt-x86_64-tools
             mingw-w64-ucrt-x86_64-libwebp
             mingw-w64-ucrt-x86_64-onevpl
-            mingw-w64-ucrt-x86_64-libavformat
             mingw-w64-ucrt-x86_64-libavutil
             mingw-w64-ucrt-x86_64-libswscale
             
