@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON -DCMAKE_INCLUDE_PATH="/ucrt64/include" -DCMAKE_LIBRARY_PATH="/ucrt64/lib"
       
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
