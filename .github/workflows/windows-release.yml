@@ -76,7 +76,7 @@ jobs:
           cd third-party/build-deps
           mkdir -p build/dist
           cmake -B build -S . -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/build/dist"
-          cmake --build build --target install
+          cmake --build build --target install --parallel 1
 
       - name: Configure CMake Build
         run: |
