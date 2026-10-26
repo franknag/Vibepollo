@@ -26,7 +26,6 @@ jobs:
           msystem: UCRT64
           update: true
           install: >-
-            tar
             base-devel
             mingw-w64-ucrt-x86_64-git
             mingw-w64-ucrt-x86_64-cmake
@@ -51,6 +50,11 @@ jobs:
             mingw-w64-ucrt-x86_64-miniupnpc
             mingw-w64-ucrt-x86_64-nlohmann-json
             mingw-w64-ucrt-x86_64-libyaml
+            mingw-w64-ucrt-x86_64-libpng
+            mingw-w64-ucrt-x86_64-libjpeg-turbo
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-tools
+            mingw-w64-ucrt-x86_64-libwebp
             mingw-w64-ucrt-x86_64-onevpl
             
       - name: Ensure NPM CLI Path Compatibility for CMake
