@@ -58,12 +58,14 @@ jobs:
               Set-Content -Path "$targetDir/npm-cli.js" -Value ""
           }
 
-      - name: Patch CMakeLists for MinGW Linker Compatibility
+      - name: Patch CMake Files for MinGW/GCC Linker Compatibility
         shell: msys2 {0}
         run: |
-          # Translate MSVC-specific linker flags to GCC/MinGW equivalents
-          find . -name "CMakeLists.txt" -type f -exec sed -i 's|/SUBSYSTEM:WINDOWS|-Wl,-subsystem,windows|g' {} +
-          find . -name "CMakeLists.txt" -type f -exec sed -i 's|/ENTRY:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
+          echo "Scanning and replacing MSVC linker flags for MinGW/GCC compatibility..."
+          find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/SUBSYSTEM:WINDOWS|-Wl,-subsystem,windows|g' {} +
+          find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/ENTRY:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
+          find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/subsystem:windows|-Wl,-subsystem,windows|g' {} +
+          find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i 's|/entry:mainCRTStartup|-Wl,-e,mainCRTStartup|g' {} +
 
       - name: Configure CMake Build
         run: |
