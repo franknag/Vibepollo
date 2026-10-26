@@ -88,8 +88,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-DMIC_PACKET_TYPE_OPUS=0x61 -DSS_ENC_MICROPHONE=0x08 -DMIC_PACKET_MAGIC=0x12345678"
-      
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-MIC_PACKET_TYPE_OPUS 0x61 -MAX_MIC_PACKET_SIZE 1400 -MIC_PACKET_MAGIC 0x12345678 -SS_ENC_MICROPHONE 0x08" -DCMAKE_CXX_FLAGS="-MIC_PACKET_TYPE_OPUS 0x61 -MAX_MIC_PACKET_SIZE 1400 -MIC_PACKET_MAGIC 0x12345678 -SS_ENC_MICROPHONE 0x08"
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
