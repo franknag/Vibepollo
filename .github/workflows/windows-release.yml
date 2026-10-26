@@ -78,7 +78,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
+          cmake .. -G Ninja "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
