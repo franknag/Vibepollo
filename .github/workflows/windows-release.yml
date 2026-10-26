@@ -73,7 +73,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
+          cmake .. -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release -DFFMPEG_PREPARED_BINARIES=ON
       - name: Compile ApolloVibe (Sunshine Host)
         run: |
           cd build
