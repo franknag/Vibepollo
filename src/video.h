@@ -371,6 +371,16 @@ namespace video {
    */
   int probe_encoders(platf::input_desktop_wait_context_e wait = platf::input_desktop_wait_context_e::request);
 
+  // Several NTSC standard refresh rates are hardcoded here, because their
+  // true rate requires a denominator of 1001. ffmpeg's av_d2q() would assume it could
+  // reduce 29.97 to 2997/100 but this would be slightly wrong. We also include
+  // support for 23.976 film in case someone wants to stream a film at the perfect
+  // framerate.
+  inline AVRational framerate_to_rational(const int framerate) {
+    const auto rational = policy::framerate_x100_to_rational(framerate);
+    return AVRational {rational.numerator, rational.denominator};
+  }
+
   /**
    * @brief The 503 status message for a launch or resume refused because `probe_encoders()` failed.
    * @details Tells the client to retry when the cause is an input desktop that is not accessible yet.
