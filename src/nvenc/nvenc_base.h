@@ -4,6 +4,11 @@
  */
 #pragma once
 
+// platform includes
+#ifdef _WIN32
+  #include <winsock2.h>
+#endif
+
 // lib includes
 #include <ffnvcodec/nvEncodeAPI.h>
 
@@ -42,13 +47,19 @@ namespace nvenc {
      * @param buffer_format Platform-agnostic input surface format.
      * @return `true` on success, `false` on error
      */
-    bool create_encoder(const nvenc_config &config, const video::config_t &client_config, const nvenc_colorspace_t &colorspace, NV_ENC_BUFFER_FORMAT buffer_format);
+    bool create_encoder(
+      const nvenc_config &config,
+      const video::config_t &client_config,
+      const nvenc_colorspace_t &colorspace,
+      NV_ENC_BUFFER_FORMAT buffer_format,
+      const SS_HDR_METADATA *initial_hdr_metadata = nullptr
+    );
 
     /**
      * @brief Destroy the encoder.
      *        Derived classes classes call it in the destructor.
      */
-    void destroy_encoder();
+    bool destroy_encoder();
 
     /**
      * @brief Encode the next frame using platform-specific input surface.
@@ -69,13 +80,60 @@ namespace nvenc {
      */
     bool invalidate_ref_frames(uint64_t first_frame, uint64_t last_frame);
 
+    /**
+     * @brief Reconfigure the live encoder with a new average/max bitrate (no rebuild).
+     * @param bitrate_kbps New bitrate in kbps.
+     * @return `true` if reconfigured in place; `false` if the caller must rebuild the encoder.
+     */
+    bool set_bitrate(int bitrate_kbps);
+
+    /**
+     * @brief Replace HDR mastering-display and content-light metadata for subsequent frames.
+     * @param metadata Metadata in Sunshine's control-channel units.
+     */
+    void set_hdr_metadata(const SS_HDR_METADATA &metadata);
+
   protected:
+    /** Enter/leave a platform device context around complete NVENC API transactions. */
+    virtual bool enter_context() {
+      return true;
+    }
+    virtual void leave_context() {
+    }
+
+    /** Native backends may retain the session handle to quarantine dependent resources after teardown failure. */
+    virtual bool preserve_encoder_on_destroy_failure() const noexcept {
+      return false;
+    }
+
+    class context_guard_t {
+    public:
+      explicit context_guard_t(nvenc_base &owner):
+          owner(owner),
+          active(owner.enter_context()) {
+      }
+
+      ~context_guard_t() {
+        if (active) {
+          owner.leave_context();
+        }
+      }
+
+      explicit operator bool() const noexcept {
+        return active;
+      }
+
+    private:
+      nvenc_base &owner;
+      bool active;
+    };
+
     /**
      * @brief Required. Used for loading NvEnc library and setting `nvenc` variable with `NvEncodeAPICreateInstance()`.
      *        Called during `create_encoder()` if `nvenc` variable is not initialized.
      * @return `true` on success, `false` on error
      */
-    virtual bool init_library() = 0;
+    virtual bool init_library(uint32_t api_version) = 0;
 
     /**
      * @brief Required. Used for creating outside-facing input surface,
@@ -106,16 +164,6 @@ namespace nvenc {
 
     bool nvenc_failed(NVENCSTATUS status);
 
-    /**
-     * @brief This function returns the corresponding struct version for the minimum API required by the codec.
-     * @details Reducing the struct versions maximizes driver compatibility by avoiding needless API breaks.
-     * @param version The raw structure version from `NVENCAPI_STRUCT_VERSION()`.
-     * @param v11_struct_version Optionally specifies the struct version to use with v11 SDK major versions.
-     * @param v12_struct_version Optionally specifies the struct version to use with v12 SDK major versions.
-     * @return A suitable struct version for the active codec.
-     */
-    uint32_t min_struct_version(uint32_t version, uint32_t v11_struct_version = 0, uint32_t v12_struct_version = 0);
-
     const NV_ENC_DEVICE_TYPE device_type;
 
     void *encoder = nullptr;
@@ -124,6 +172,7 @@ namespace nvenc {
       uint32_t width = 0;
       uint32_t height = 0;
       NV_ENC_BUFFER_FORMAT buffer_format = NV_ENC_BUFFER_FORMAT_UNDEFINED;
+      int video_format = -1;
       uint32_t ref_frames_in_dpb = 0;
       bool rfi = false;
     } encoder_params;
@@ -139,17 +188,27 @@ namespace nvenc {
                                                               ///< Should be set in `create_and_register_input_buffer()`.
     void *async_event_handle = nullptr;  ///< (optional) Platform-specific handle of event object event.
                                          ///< Can be set in constructor or `init_library()`, must override `wait_for_async_event()`.
+    uint32_t selected_api_version = 0;  ///< API version selected after runtime probing.
+    NVENCSTATUS last_nvenc_status = NV_ENC_SUCCESS;
 
   private:
     NV_ENC_OUTPUT_PTR output_bitstream = nullptr;
-    uint32_t minimum_api_version = 0;
 
     struct {
       uint64_t last_encoded_frame_index = 0;
       bool rfi_needs_confirmation = false;
       std::pair<uint64_t, uint64_t> last_rfi_range;
       logging::min_max_avg_periodic_logger<double> frame_size_logger = {debug, "NvEnc: encoded frame sizes in kB", ""};
+      logging::min_max_avg_periodic_logger<double> encode_latency_logger = {debug, "NvEnc: native encode call latency", "ms"};
     } encoder_state;
+
+    // Saved during create_encoder() so set_bitrate() can drive nvEncReconfigureEncoder().
+    // saved_init_params.encodeConfig points at current_enc_config.
+    NV_ENC_INITIALIZE_PARAMS saved_init_params {};
+    NV_ENC_CONFIG current_enc_config {};
+
+    bool hdr_metadata_valid = false;
+    SS_HDR_METADATA hdr_metadata {};
   };
 
 }  // namespace nvenc

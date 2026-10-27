@@ -4,8 +4,9 @@
  */
 #pragma once
 
-// plafform includes
+// platform includes
 #ifdef _WIN32
+  #include <winsock2.h>
   #include <dxgiformat.h>
 #endif
 

@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <string_view>
+
 namespace nvenc {
 
   enum class nvenc_two_pass {
@@ -11,6 +13,35 @@ namespace nvenc {
     quarter_resolution,  ///< Larger motion vectors being caught, faster and uses less extra vram
     full_resolution,  ///< Better overall statistics, slower and uses more extra vram
   };
+
+  enum class split_encode_mode {
+    auto_mode,  ///< Let the NVIDIA driver decide when split-frame encoding should be used
+    enabled,  ///< Force split-frame encoding when supported
+    disabled,  ///< Disable split-frame encoding even when it would otherwise be auto-enabled
+  };
+
+  struct encoder_selection_policy_t {
+    bool include_native = true;
+    bool fail_closed = false;
+  };
+
+  inline constexpr std::string_view canonical_encoder_name(
+    std::string_view requested_encoder) noexcept {
+    if (requested_encoder == "nvenc_experimental") {
+      return "nvenc";
+    }
+    return requested_encoder;
+  }
+
+  /** Native Linux NVENC is preferred unless the legacy backend is requested. */
+  inline constexpr encoder_selection_policy_t encoder_selection_policy(
+    std::string_view requested_encoder) noexcept {
+    const auto canonical_encoder = canonical_encoder_name(requested_encoder);
+    return {
+      canonical_encoder != "nvenc_legacy",
+      canonical_encoder == "nvenc",
+    };
+  }
 
   /**
    * @brief NVENC encoder configuration.
@@ -31,6 +62,9 @@ namespace nvenc {
     // Allocate more bitrate to flat regions since they're visually more perceptible, uses CUDA cores
     bool adaptive_quantization = false;
 
+    // Allocate more bitrate to frames with more motion, reduces block-artefact pulsing in moving scenes
+    bool temporal_aq = false;
+
     // Don't use QP below certain value, limits peak image quality to save bitrate
     bool enable_min_qp = false;
 
@@ -45,6 +79,9 @@ namespace nvenc {
 
     // Use CAVLC entropy coding in H.264 instead of CABAC, not relevant and here for historical reasons
     bool h264_cavlc = false;
+
+    // Control split-frame encoding for supported HEVC/AV1 sessions
+    nvenc::split_encode_mode split_encode_mode = nvenc::split_encode_mode::auto_mode;
 
     // Add filler data to encoded frames to stay at target bitrate, mainly for testing
     bool insert_filler_data = false;
