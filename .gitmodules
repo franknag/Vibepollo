@@ -88,3 +88,7 @@
 	path = third-party/libvirtualgamepad
 	url = https://github.com/Nonary/libvirtualgamepad.git
 	branch = main
+[submodule "third-party/moonlight-common-c"]
+	path = third-party/moonlight-common-c
+	url = https://github.com/franknag/moonlight-common-c.git
+	branch = master
