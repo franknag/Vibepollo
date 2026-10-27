@@ -30,6 +30,7 @@ extern "C" {
 #include "platform/common.h"
 #include "sync.h"
 #include "video.h"
+#include "video_policy.h"
 
 #ifdef _WIN32
   #include "platform/windows/misc.h"
