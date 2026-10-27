@@ -2,7 +2,7 @@ name: Generate Windows Release
 
 on:
   push:
-    branches: [ ApolloVibeMerged ]
+    branches: [ ApolloVibeMergedNew ]
   workflow_dispatch:
 
 jobs:
