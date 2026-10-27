@@ -1,3 +1,4 @@
+#include "third-party/moonlight-common-c/src/ControllerHaptics.h"
 /**
  * @file src/stream.cpp
  * @brief Definitions for the streaming protocols.
