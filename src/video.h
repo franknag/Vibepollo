@@ -9,6 +9,7 @@
 #include "input_desktop_wait.h"
 #include "platform/common.h"
 #include "thread_safe.h"
+#include "video_policy.h"
 #include "video_colorspace.h"
 
 extern "C" {
