@@ -28,7 +28,7 @@ namespace video {
     // BIG F WORD to Sunshine!!!!!!!!!
     int width;  // Video width in pixels
     int height;  // Video height in pixels
-    int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
+    int framerateX100;  // Requested framerate, used in individual frame bitrate budget calculation
     int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
     int slicesPerFrame;  // Number of slices per frame
     int numRefFrames;  // Max number of reference frames
@@ -377,8 +377,8 @@ namespace video {
   // reduce 29.97 to 2997/100 but this would be slightly wrong. We also include
   // support for 23.976 film in case someone wants to stream a film at the perfect
   // framerate.
-  inline AVRational framerate_to_rational(const int framerate) {
-    const auto rational = policy::framerate_x100_to_rational(framerate);
+  inline AVRational framerateX100_to_rational(const int framerateX100) {
+    const auto rational = policy::framerate_x100_to_rational(framerateX100);
     return AVRational {rational.numerator, rational.denominator};
   }
 
