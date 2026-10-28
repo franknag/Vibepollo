@@ -28,7 +28,8 @@ namespace video {
     // BIG F WORD to Sunshine!!!!!!!!!
     int width;  // Video width in pixels
     int height;  // Video height in pixels
-    int framerateX100;  // Requested framerate, used in individual frame bitrate budget calculation
+    int framerate;  // Requested framerate, used in individual frame bitrate budget calculation
+    int framerateX100;  // Optional field for streaming at NTSC or similar rates e.g. 59.94 = 5994
     int bitrate;  // Video bitrate in kilobits (1000 bits) for requested framerate
     int slicesPerFrame;  // Number of slices per frame
     int numRefFrames;  // Max number of reference frames
