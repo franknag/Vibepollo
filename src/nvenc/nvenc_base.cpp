@@ -391,10 +391,10 @@ namespace nvenc {
       init_params.darWidth = encoder_params.width;
       init_params.encodeHeight = encoder_params.height;
       init_params.darHeight = encoder_params.height;
-      init_params.frameRateNum = client_config.framerate;
+      init_params.frameRateNum = client_config.framerateX100;
       init_params.frameRateDen = 1;
-      if (client_config.framerate > 0) {
-        AVRational fps = video::framerate_to_rational(client_config.framerate);
+      if (client_config.framerateX100 > 0) {
+        AVRational fps = video::framerate_x100_to_rational(client_config.framerateX100);
         init_params.frameRateNum = fps.num;
         init_params.frameRateDen = fps.den;
       }
@@ -495,7 +495,7 @@ namespace nvenc {
     enc_config.rcParams.averageBitRate = client_config.bitrate * 1000;
 
     if (get_encoder_cap(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
-      enc_config.rcParams.vbvBufferSize = client_config.bitrate * 1000 / client_config.framerate;
+      enc_config.rcParams.vbvBufferSize = client_config.bitrate * 1000 / client_config.framerateX100;
       if (config.vbv_percentage_increase > 0) {
         enc_config.rcParams.vbvBufferSize += enc_config.rcParams.vbvBufferSize * config.vbv_percentage_increase / 100;
       }
@@ -831,7 +831,7 @@ namespace nvenc {
 
     {
       auto f = stat_trackers::two_digits_after_decimal();
-      BOOST_LOG(debug) << "NvEnc: requested encoded frame size " << f % (client_config.bitrate / 8. / client_config.framerate) << " kB";
+      BOOST_LOG(debug) << "NvEnc: requested encoded frame size " << f % (client_config.bitrate / 8. / client_config.framerateX100) << " kB";
     }
 
     {
