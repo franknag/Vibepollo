@@ -3,28 +3,69 @@
  * @brief Definitions for the main entry point for Sunshine.
  */
 // standard includes
+#include <algorithm>
+#include <atomic>
+#include <cerrno>
 #include <codecvt>
+#include <condition_variable>
 #include <csignal>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <system_error>
+#include <thread>
 
 // local includes
 #include "confighttp.h"
-#include "display_device.h"
 #include "entry_handler.h"
 #include "globals.h"
+#include "host_stats.h"
 #include "httpcommon.h"
 #include "logging.h"
 #include "main.h"
 #include "nvhttp.h"
 #include "process.h"
+#include "rtsp.h"
 #include "system_tray.h"
+#include "update.h"
 #include "upnp.h"
+#include "version_compare.h"
 #include "uuid.h"
 #include "video.h"
+#include "session_history.h"
+#include "state_storage.h"
+#include "steam_auto_sync.h"
+#ifdef __linux__
+  #include "lutris_auto_sync.h"
+#endif
+#include "webrtc_stream.h"
+#ifdef _WIN32
+  #include <shobjidl.h>
+
+  #include "src/display_helper_integration.h"
+  #include "src/platform/windows/frame_limiter_nvcp.h"
+  #include "src/platform/windows/misc.h"
+  #include "src/platform/windows/playnite_integration.h"
+  #include "src/platform/windows/rtss_integration.h"
+  #include "src/platform/windows/startup_encoder_probe_policy.h"
+  #include "src/platform/windows/virtual_display.h"
+  #include "src/platform/windows/virtual_display_cleanup.h"
+#elif defined(__linux__)
+  #include "src/platform/linux/capability_sanitizer.h"
+  #include "src/platform/linux/maintenance_cli.h"
+  #include "src/platform/linux/private_display.h"
+  #include "src/platform/linux/display_backend.h"
+
+  #include <pthread.h>
+#endif
 
 #ifdef _WIN32
   #include "platform/windows/misc.h"
+  #include "platform/windows/display_helper_integration.h"
   #include "platform/windows/virtual_display.h"
 #endif
 
